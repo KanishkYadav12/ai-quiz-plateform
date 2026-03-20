@@ -164,11 +164,16 @@ export default function ResultsPage() {
                       {player.name?.[0]?.toUpperCase()}
                     </div>
                     <div>
-                      <span className={`font-bold text-lg ${player.userId === currentUser?._id ? 'text-[var(--accent-primary)]' : 'text-[var(--text-primary)]'}`}>
-                        {player.name}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className={`font-bold text-lg ${player.userId === currentUser?._id ? 'text-[var(--accent-primary)]' : 'text-[var(--text-primary)]'}`}>
+                          {player.name}
+                        </span>
+                        {player.isDisqualified && (
+                          <span className="text-[10px] font-black text-[var(--error)] bg-[var(--error-muted)] px-2 py-0.5 rounded-lg border border-[var(--error)]/30 uppercase tracking-widest">Disqualified</span>
+                        )}
+                      </div>
                       {player.userId === currentUser?._id && (
-                        <span className="ml-3 text-[8px] font-black uppercase tracking-[0.2em] bg-[var(--accent-primary)] text-white px-2 py-0.5 rounded-full">You</span>
+                        <span className="text-[8px] font-black uppercase tracking-[0.2em] bg-[var(--accent-primary)] text-white px-2 py-0.5 rounded-full">You</span>
                       )}
                     </div>
                   </div>

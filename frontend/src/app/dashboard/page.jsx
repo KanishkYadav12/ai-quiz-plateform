@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { PlusCircle, BookOpen, Trash2, Play, Globe, Lock, Loader2, Brain, User, Target, BarChart3, TrendingUp, Sparkles, Trophy, Zap } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import AuthGuard from '@/components/layout/AuthGuard'
+import FairPlayModal from '@/components/room/AgreementModal'
 import { useAuth } from '@/hooks/auth/useAuth'
 import { useQuiz } from '@/hooks/quiz/useQuiz'
 import { useRoom } from '@/hooks/room/useRoom'
@@ -58,7 +59,7 @@ function PublicQuizCard({ quiz, onPlay }) {
   );
 }
 
-function LiveRoomCard({ room }) {
+function LiveRoomCard({ room, onJoin }) {
   const diffStyles = {
     easy: "text-[var(--success)] bg-[var(--success-muted)]",
     medium: "text-[var(--warning)] bg-[var(--warning-muted)]",
@@ -94,13 +95,13 @@ function LiveRoomCard({ room }) {
 
       <div className="mt-auto">
         {isWaiting ? (
-          <Link
-            href={`/room/${room.roomCode}/lobby`}
+        <button
+          onClick={() => onJoin(room.roomCode)}
             className="btn-primary w-full flex items-center justify-center gap-2 py-2"
           >
             <Play size={14} fill="currentColor" />
             Join
-          </Link>
+        </button>
         ) : (
           <button
             disabled
@@ -179,6 +180,7 @@ function QuizCard({ quiz, onDelete, onPlay, deleteLoading }) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const {
     quizzes,
     publicQuizzes,
@@ -192,6 +194,8 @@ export default function DashboardPage() {
   const { liveRooms, liveRoomsLoading, loadLiveRooms, makeRoom, createLoading } = useRoom();
   const { isConnected, joinDashboard } = useSocket();
 
+  const [agreementModal, setAgreementModal] = useState({ isOpen: false, targetRoom: null });
+
   useEffect(() => {
     loadMyQuizzes();
     loadPublicQuizzes();
@@ -204,8 +208,29 @@ export default function DashboardPage() {
     }
   }, [isConnected]);
 
+  const handleJoinRoom = (roomCode) => {
+    const hasAgreed = sessionStorage.getItem("fairPlayAgreed");
+    if (hasAgreed) {
+      router.push(`/room/${roomCode}/lobby`);
+    } else {
+      setAgreementModal({ isOpen: true, targetRoom: roomCode });
+    }
+  };
+
+  const confirmAgreement = () => {
+    sessionStorage.setItem("fairPlayAgreed", "true");
+    const roomCode = agreementModal.targetRoom;
+    setAgreementModal({ isOpen: false, targetRoom: null });
+    if (roomCode) router.push(`/room/${roomCode}/lobby`);
+  };
+
   return (
     <AuthGuard>
+      <FairPlayModal
+        isOpen={agreementModal.isOpen}
+        onConfirm={confirmAgreement}
+        onCancel={() => setAgreementModal({ isOpen: false, targetRoom: null })}
+      />
       <div className="min-h-screen bg-[var(--bg-primary)] page-enter">
         <Navbar />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -266,7 +291,7 @@ export default function DashboardPage() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     {liveRooms.map((room) => (
-                      <LiveRoomCard key={room.roomCode} room={room} />
+                  <LiveRoomCard key={room.roomCode} room={room} onJoin={handleJoinRoom} />
                     ))}
                   </div>
                 )}

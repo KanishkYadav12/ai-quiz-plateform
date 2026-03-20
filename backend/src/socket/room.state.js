@@ -89,6 +89,8 @@ export const upsertPlayer = (roomCode, playerData) => {
       answers: [],
       isReady: false,
       isConnected: true,
+      isDisqualified: false,
+      disqualifyReason: null,
       ...playerData,
     });
   }
@@ -121,7 +123,7 @@ export const recordAnswer = (roomCode, userId, answerData, points) => {
   if (!state) return null;
 
   const player = state.players.get(userId.toString());
-  if (!player) return null;
+  if (!player || player.isDisqualified) return null;
 
   // Prevent duplicate submission for the same question
   const alreadyAnswered = player.answers.some(
@@ -145,7 +147,8 @@ export const getLeaderboard = (roomCode) => {
     .map((p) => ({
       userId: p.userId,
       name: p.name,
-      score: p.score,
+      score: p.isDisqualified ? 0 : p.score,
+      isDisqualified: p.isDisqualified,
       averageTime:
         p.answers.length > 0
           ? p.answers.reduce((sum, a) => sum + a.timeTaken, 0) /

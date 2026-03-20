@@ -14,6 +14,7 @@ import {
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import AuthGuard from "@/components/layout/AuthGuard";
+import FairPlayModal from "@/components/room/AgreementModal";
 
 const schema = z.object({
   roomCode: z.string().length(6, "Code must be exactly 6 digits"),
@@ -22,6 +23,7 @@ const schema = z.object({
 export default function JoinRoomPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [agreementModal, setAgreementModal] = useState({ isOpen: false, targetRoom: null });
 
   const {
     register,
@@ -32,14 +34,32 @@ export default function JoinRoomPage() {
   });
 
   const onSubmit = (values) => {
-    setLoading(true);
-    // Fair Play Agreement would normally be here,
-    // for now we redirect to lobby which handles connection
-    router.push(`/room/${values.roomCode}/lobby`);
+    const hasAgreed = sessionStorage.getItem("fairPlayAgreed");
+    if (hasAgreed) {
+      setLoading(true);
+      router.push(`/room/${values.roomCode}/lobby`);
+    } else {
+      setAgreementModal({ isOpen: true, targetRoom: values.roomCode });
+    }
+  };
+
+  const confirmAgreement = () => {
+    sessionStorage.setItem("fairPlayAgreed", "true");
+    const roomCode = agreementModal.targetRoom;
+    setAgreementModal({ isOpen: false, targetRoom: null });
+    if (roomCode) {
+      setLoading(true);
+      router.push(`/room/${roomCode}/lobby`);
+    }
   };
 
   return (
     <AuthGuard>
+      <FairPlayModal
+        isOpen={agreementModal.isOpen}
+        onConfirm={confirmAgreement}
+        onCancel={() => setAgreementModal({ isOpen: false, targetRoom: null })}
+      />
       <div className="min-h-screen bg-[var(--bg-primary)] page-enter">
         <Navbar />
         <main className="max-w-xl px-6 py-20 mx-auto">

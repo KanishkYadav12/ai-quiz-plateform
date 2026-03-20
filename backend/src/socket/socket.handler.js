@@ -32,6 +32,8 @@ const publicPlayer = (p) => ({
   score: p.score,
   isReady: p.isReady,
   isConnected: p.isConnected,
+  isDisqualified: p.isDisqualified,
+  disqualifyReason: p.disqualifyReason,
 });
 
 // ── Game flow ──────────────────────────────────────────────────
@@ -117,6 +119,30 @@ const endGame = async (io, roomCode) => {
 
   deleteRoomState(roomCode);
   io.emit("room_status_update", { roomCode, status: "completed" });
+};
+
+// ── Disqualification ───────────────────────────────────────────
+
+const disqualifyPlayer = (io, roomCode, userId, reason) => {
+  const state = getRoomState(roomCode);
+  if (!state) return;
+
+  const player = state.players.get(userId.toString());
+  if (!player || player.isDisqualified) return;
+
+  player.isDisqualified = true;
+  player.disqualifyReason = reason;
+  player.score = 0;
+
+  io.to(roomCode).emit("player_disqualified", {
+    userId,
+    name: player.name,
+    reason,
+  });
+
+  io.to(roomCode).emit("leaderboard_update", {
+    leaderboard: getLeaderboard(roomCode),
+  });
 };
 
 // ── Check if all connected players have answered ───────────────
@@ -311,6 +337,11 @@ export const registerSocketHandlers = (io) => {
       },
     );
 
+    // ── disqualify_player ────────────────────────────────────
+    socket.on("disqualify_player", ({ roomCode, userId, reason }) => {
+      disqualifyPlayer(io, roomCode, userId, reason);
+    });
+
     // ── leave_room ───────────────────────────────────────────
     socket.on("leave_room", ({ roomCode, userId }) => {
       removePlayer(roomCode, userId);
@@ -372,6 +403,11 @@ export const registerSocketHandlers = (io) => {
       }
 
       // If nobody is left, clean up
+      // If game is active, mark player as disqualified (Mid-game leave)
+      if (state.status === "active" && !player.isDisqualified) {
+        disqualifyPlayer(io, roomCode, player.userId, "Left during gameplay");
+      }
+
       const anyoneConnected = Array.from(state.players.values()).some(
         (p) => p.isConnected,
       );

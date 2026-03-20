@@ -159,6 +159,17 @@ const roomSlice = createSlice({
       state.game.finalResult = payload;
       state.game.leaderboard = payload.finalLeaderboard;
     },
+    playerDisqualified: (state, { payload }) => {
+      const p = state.game.players.find((p) => p.userId === payload.userId);
+      if (p) {
+        p.isDisqualified = true;
+        p.disqualifyReason = payload.reason;
+        p.score = 0;
+      }
+      // Update leaderboard if player is there
+      const lp = state.game.leaderboard.find((p) => p.userId === payload.userId);
+      if (lp) lp.score = 0;
+    },
     resetGame: (state) => {
       state.game = initialState.game;
     },

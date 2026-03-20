@@ -2,7 +2,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
-import { CheckCircle2, XCircle, Trophy, Clock, AlertTriangle, ChevronRight, Hash, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Trophy, Clock, AlertTriangle, ChevronRight, Hash, Loader2, ShieldAlert } from "lucide-react";
+import { toast } from "sonner";
 import AuthGuard from "@/components/layout/AuthGuard";
 import { useSocket } from "@/hooks/socket/useSocket";
 import { selectGame } from "@/redux/slices/room/roomSlice";
@@ -54,11 +55,12 @@ export default function GamePlayPage() {
   const router = useRouter();
   const currentUser = useSelector(selectCurrentUser);
   const game = useSelector(selectGame);
-  const { isConnected, joinRoom, submitAnswer } = useSocket();
+  const { isConnected, joinRoom, submitAnswer, disqualifyPlayer } = useSocket();
   const [timeLeft, setTimeLeft] = useState(game.timePerQuestion || 30);
   const [selected, setSelected] = useState(null);
   const [answered, setAnswered] = useState(false);
   const [startTime, setStartTime] = useState(null);
+  const [warnings, setWarnings] = useState(0);
 
   // Reset on new question
   useEffect(() => {
@@ -94,6 +96,48 @@ export default function GamePlayPage() {
       router.push(`/room/${roomCode}/results`);
     }
   }, [game.status]);
+
+  // Tab switch detection (Anti-Cheat)
+  useEffect(() => {
+    if (game.status !== "active") return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        setWarnings((prev) => {
+          const newCount = prev + 1;
+          if (newCount === 1) {
+            toast.error("⚠️ Warning 1/2: Switching tabs is not allowed!", {
+              duration: 5000,
+              description: "The next violation will result in immediate disqualification.",
+            });
+          } else if (newCount >= 2) {
+            disqualifyPlayer({
+              roomCode,
+              userId: currentUser._id,
+              reason: "Tab switching (2nd violation)",
+            });
+          }
+          return newCount;
+        });
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [game.status, roomCode, currentUser._id, disqualifyPlayer]);
+
+  // Handle disqualification
+  useEffect(() => {
+    const me = game.players?.find(p => p.userId === currentUser?._id);
+    if (me?.isDisqualified) {
+      toast.error("You have been disqualified", {
+        description: me.disqualifyReason || "Fair play violation",
+      });
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000);
+    }
+  }, [game.players, currentUser?._id]);
 
   const handleAnswer = useCallback(
     (option) => {
@@ -158,6 +202,12 @@ export default function GamePlayPage() {
             </div>
 
             <div className="flex items-center gap-8">
+              {warnings > 0 && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--error-muted)] border border-[var(--error)] text-[var(--error)] rounded-xl animate-pulse">
+                  <ShieldAlert size={14} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Warning {warnings}/2</span>
+                </div>
+              )}
               <TimerRing timeLeft={timeLeft} total={game.timePerQuestion || 30} />
 
               <div className="hidden sm:flex flex-col items-end">
@@ -276,7 +326,12 @@ export default function GamePlayPage() {
                       <p className={`font-bold truncate ${p.userId === currentUser?._id ? "text-[var(--accent-primary)]" : "text-[var(--text-primary)]"}`}>
                         {p.name}
                       </p>
-                      <p className="text-[10px] font-black text-[var(--text-disabled)] uppercase mono">{p.score} PTS</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-black text-[var(--text-disabled)] uppercase mono">{p.score} PTS</p>
+                        {p.isDisqualified && (
+                          <span className="text-[8px] font-black text-[var(--error)] bg-[var(--error-muted)] px-1.5 py-0.5 rounded uppercase tracking-tighter border border-[var(--error)]/20">DQ</span>
+                        )}
+                      </div>
                     </div>
                     {p.userId === currentUser?._id && <div className="w-2 h-2 rounded-full bg-[var(--accent-primary)] animate-pulse" />}
                   </div>
