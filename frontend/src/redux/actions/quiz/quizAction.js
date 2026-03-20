@@ -13,6 +13,30 @@ export const generateQuiz = (payload) => async (dispatch) => {
   }
 }
 
+export const fetchQuizAnalytics = (quizId) => async (dispatch) => {
+  dispatch(quizActions.analyticsRequest())
+  try {
+    const data = await quizService.getAnalytics(quizId)
+    dispatch(quizActions.analyticsSuccess(data.data.analytics))
+  } catch (err) {
+    dispatch(quizActions.analyticsFailure(
+      err.response?.data?.message || 'Failed to load analytics'
+    ))
+  }
+}
+
+export const fetchPublicQuizzes = () => async (dispatch) => {
+  dispatch(quizActions.publicListRequest())
+  try {
+    const data = await quizService.getPublic()
+    dispatch(quizActions.publicListSuccess(data.data.quizzes))
+  } catch (err) {
+    dispatch(quizActions.publicListFailure(
+      err.response?.data?.message || 'Failed to load public library'
+    ))
+  }
+}
+
 export const fetchMyQuizzes = () => async (dispatch) => {
   dispatch(quizActions.listRequest())
   try {

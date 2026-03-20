@@ -13,6 +13,18 @@ export const createRoom = (payload) => async (dispatch) => {
   }
 }
 
+export const fetchLiveRooms = () => async (dispatch) => {
+  dispatch(roomActions.liveRoomsRequest())
+  try {
+    const data = await roomService.getLiveRooms()
+    dispatch(roomActions.liveRoomsSuccess(data.data.rooms))
+  } catch (err) {
+    dispatch(roomActions.liveRoomsFailure(
+      err.response?.data?.message || 'Failed to load live rooms'
+    ))
+  }
+}
+
 export const fetchRoomByCode = (roomCode) => async (dispatch) => {
   dispatch(roomActions.detailsRequest())
   try {

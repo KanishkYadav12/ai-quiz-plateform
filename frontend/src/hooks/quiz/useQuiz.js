@@ -9,10 +9,14 @@ import {
   fetchQuizById,
   deleteQuiz,
   toggleQuizPublish,
+  fetchPublicQuizzes,
+  fetchQuizAnalytics,
 } from '@/redux/actions/quiz/quizAction'
 import {
   selectQuizList,
+  selectPublicQuizList,
   selectQuizDetails,
+  selectQuizAnalytics,
   selectQuizCreate,
   selectQuizDelete,
   selectQuizPublish,
@@ -24,7 +28,9 @@ export const useQuiz = () => {
   const router   = useRouter()
 
   const listOp    = useSelector(selectQuizList)
+  const publicListOp = useSelector(selectPublicQuizList)
   const detailsOp = useSelector(selectQuizDetails)
+  const analyticsOp = useSelector(selectQuizAnalytics)
   const createOp  = useSelector(selectQuizCreate)
   const deleteOp  = useSelector(selectQuizDelete)
   const publishOp = useSelector(selectQuizPublish)
@@ -79,9 +85,13 @@ export const useQuiz = () => {
   return {
     // state
     quizzes:       listOp.data    || [],
+    publicQuizzes: publicListOp.data || [],
     quiz:          detailsOp.data || null,
+    analytics:     analyticsOp.data || null,
     listLoading:   listOp.status    === 'pending',
+    publicListLoading: publicListOp.status === 'pending',
     detailLoading: detailsOp.status === 'pending',
+    analyticsLoading: analyticsOp.status === 'pending',
     createLoading,
     deleteLoading,
     listError:   listOp.error,
@@ -90,7 +100,9 @@ export const useQuiz = () => {
     // actions
     generate:      (payload)            => dispatch(generateQuiz(payload)),
     loadMyQuizzes: ()                   => dispatch(fetchMyQuizzes()),
+    loadPublicQuizzes: ()               => dispatch(fetchPublicQuizzes()),
     loadQuiz:      (quizId)             => dispatch(fetchQuizById(quizId)),
+    loadAnalytics: (quizId)             => dispatch(fetchQuizAnalytics(quizId)),
     removeQuiz:    (quizId)             => dispatch(deleteQuiz(quizId)),
     publishQuiz:   (quizId, isPublic)   => dispatch(toggleQuizPublish(quizId, isPublic)),
   }

@@ -7,6 +7,7 @@ const initialState = {
   details: op(),
   myRooms: op(),
   history: op(),
+  liveRooms: op(),
   game: {
     roomCode: null,
     status: "idle",
@@ -70,6 +71,39 @@ const roomSlice = createSlice({
     },
     historyFailure: (state, { payload }) => {
       state.history = { status: "failed", data: null, error: payload };
+    },
+
+    // ── live rooms ────────────────────────────────────────
+    liveRoomsRequest: (state) => {
+      state.liveRooms = { status: "pending", data: null, error: null };
+    },
+    liveRoomsSuccess: (state, { payload }) => {
+      state.liveRooms = { status: "success", data: payload, error: null };
+    },
+    liveRoomsFailure: (state, { payload }) => {
+      state.liveRooms = { status: "failed", data: null, error: payload };
+    },
+    updateLiveRoom: (state, { payload }) => {
+      if (!state.liveRooms.data) return;
+
+      if (payload.status === "deleted" || payload.status === "completed") {
+        state.liveRooms.data = state.liveRooms.data.filter(
+          (r) => r.roomCode !== payload.roomCode,
+        );
+      } else {
+        const index = state.liveRooms.data.findIndex(
+          (r) => r.roomCode === payload.roomCode,
+        );
+        if (index !== -1) {
+          state.liveRooms.data[index] = {
+            ...state.liveRooms.data[index],
+            ...payload,
+          };
+        } else if (payload.status) {
+          // It's a new room being created
+          state.liveRooms.data.unshift(payload);
+        }
+      }
     },
 
     // ── live game state (socket-driven) ───────────────────
@@ -139,4 +173,5 @@ export const selectRoomCreate = (s) => s.room.create;
 export const selectRoomDetails = (s) => s.room.details;
 export const selectMyRooms = (s) => s.room.myRooms;
 export const selectRoomHistory = (s) => s.room.history;
+export const selectLiveRooms = (s) => s.room.liveRooms;
 export const selectGame = (s) => s.room.game;

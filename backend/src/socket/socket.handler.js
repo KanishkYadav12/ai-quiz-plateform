@@ -14,6 +14,7 @@ import {
   getRoomByCode,
   saveFinalScoresToRoom,
 } from "../services/room.service.js";
+import { Quiz } from "../models/quiz.model.js";
 import { calculateScore } from "../utils/scoring.util.js";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -90,6 +91,7 @@ const endGame = async (io, roomCode) => {
   const state = getRoomState(roomCode);
   if (!state) return;
 
+  const players = getAllPlayers(roomCode);
   const finalLeaderboard = getLeaderboard(roomCode);
   const winner = finalLeaderboard[0] ?? null;
 
@@ -97,12 +99,24 @@ const endGame = async (io, roomCode) => {
 
   // Persist final scores to MongoDB
   try {
-    await saveFinalScoresToRoom(roomCode, getAllPlayers(roomCode));
+    await saveFinalScoresToRoom(roomCode, players);
+
+    // Update Quiz Analytics
+    const quiz = await Quiz.findById(state.quiz._id);
+    if (quiz) {
+      quiz.timesPlayed += 1;
+      quiz.totalParticipants += players.length;
+      quiz.totalScoreSum += players.reduce((sum, p) => sum + p.score, 0);
+      const topScore = finalLeaderboard[0]?.score || 0;
+      if (topScore > quiz.highestScore) quiz.highestScore = topScore;
+      await quiz.save();
+    }
   } catch (err) {
-    console.error("[Socket] Failed to save final scores:", err.message);
+    console.error("[Socket] Failed to save final scores / update analytics:", err.message);
   }
 
   deleteRoomState(roomCode);
+  io.emit("room_status_update", { roomCode, status: "completed" });
 };
 
 // ── Check if all connected players have answered ───────────────
@@ -136,6 +150,11 @@ const checkAllAnswered = (io, roomCode, questionIndex) => {
 
 export const registerSocketHandlers = (io) => {
   io.on("connection", (socket) => {
+    // Join a global dashboard room to receive live room updates
+    socket.on("join_dashboard", () => {
+      socket.join("dashboard");
+    });
+
     // ── join_room ────────────────────────────────────────────
     socket.on("join_room", async ({ roomCode, userId, userName }) => {
       try {
@@ -168,6 +187,18 @@ export const registerSocketHandlers = (io) => {
         socket
           .to(roomCode)
           .emit("player_joined", { player: publicPlayer(player) });
+
+        // If room is new or status updated, notify dashboard
+        io.to("dashboard").emit("room_status_update", {
+          roomCode,
+          status: state.status,
+          playerCount: state.players.size,
+          hostName: roomDoc.hostId.name,
+          quizTitle: state.quiz.title,
+          topic: state.quiz.topic,
+          difficulty: state.quiz.difficulty,
+          createdAt: roomDoc.createdAt,
+        });
 
         // Send current room state to the joining player
         socket.emit("room_joined", {
@@ -216,6 +247,11 @@ export const registerSocketHandlers = (io) => {
 
       state.status = "active";
       state.currentQuestionIndex = 0;
+
+      io.to("dashboard").emit("room_status_update", {
+        roomCode,
+        status: "active",
+      });
 
       io.to(roomCode).emit("game_started", {
         firstQuestion: sanitiseQuestion(state.quiz.questions[0]),
@@ -280,6 +316,14 @@ export const registerSocketHandlers = (io) => {
       removePlayer(roomCode, userId);
       socket.leave(roomCode);
       io.to(roomCode).emit("player_left", { userId });
+
+      const state = getRoomState(roomCode);
+      if (state) {
+        io.to("dashboard").emit("room_status_update", {
+          roomCode,
+          playerCount: state.players.size,
+        });
+      }
     });
 
     // ── disconnect ───────────────────────────────────────────
@@ -295,6 +339,11 @@ export const registerSocketHandlers = (io) => {
       player.isConnected = false;
       io.to(roomCode).emit("player_left", { userId: player.userId });
 
+      io.to("dashboard").emit("room_status_update", {
+        roomCode,
+        playerCount: state.players.size,
+      });
+
       const isHost = state.hostSocketId === socket.id;
 
       if (isHost) {
@@ -304,6 +353,10 @@ export const registerSocketHandlers = (io) => {
             message: "Host disconnected. Room has been closed.",
           });
           deleteRoomState(roomCode);
+          io.to("dashboard").emit("room_status_update", {
+            roomCode,
+            status: "deleted",
+          });
           return;
         }
 
@@ -324,6 +377,10 @@ export const registerSocketHandlers = (io) => {
       );
       if (!anyoneConnected) {
         deleteRoomState(roomCode);
+        io.to("dashboard").emit("room_status_update", {
+          roomCode,
+          status: "deleted",
+        });
       }
     });
   });

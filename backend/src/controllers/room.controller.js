@@ -4,6 +4,7 @@ import {
   getRoomByCode,
   getRoomsByHost,
   getRoomsByParticipant,
+  getLiveRooms,
 } from "../services/room.service.js";
 
 export const createRoomController = asyncHandler(async (req, res) => {
@@ -24,5 +25,10 @@ export const getMyRoomsController = asyncHandler(async (req, res) => {
 
 export const getRoomHistoryController = asyncHandler(async (req, res) => {
   const rooms = await getRoomsByParticipant(req.user._id);
+  res.status(200).json({ status: "success", data: { rooms } });
+});
+
+export const getLiveRoomsController = asyncHandler(async (req, res) => {
+  const rooms = await getLiveRooms();
   res.status(200).json({ status: "success", data: { rooms } });
 });

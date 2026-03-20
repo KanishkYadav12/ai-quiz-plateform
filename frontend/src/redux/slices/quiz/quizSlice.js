@@ -4,7 +4,9 @@ const op = () => ({ status: 'idle', data: null, error: null })
 
 const initialState = {
   list:    op(),
+  publicList: op(),
   details: op(),
+  analytics: op(),
   create:  op(),
   delete:  op(),
   publish: op(),
@@ -20,11 +22,23 @@ const quizSlice = createSlice({
     listFailure:  (state, { payload }) => { state.list = { status: 'failed',  data: null,    error: payload } },
     clearListError: (state) => { state.list.error = null; state.list.status = 'idle' },
 
+    // ── public list ───────────────────────────────────────
+    publicListRequest: (state) => { state.publicList = { status: 'pending', data: null, error: null } },
+    publicListSuccess: (state, { payload }) => { state.publicList = { status: 'success', data: payload, error: null } },
+    publicListFailure: (state, { payload }) => { state.publicList = { status: 'failed',  data: null,    error: payload } },
+    clearPublicListError: (state) => { state.publicList.error = null; state.publicList.status = 'idle' },
+
     // ── details ───────────────────────────────────────────
     detailsRequest: (state) => { state.details = { status: 'pending', data: null, error: null } },
     detailsSuccess: (state, { payload }) => { state.details = { status: 'success', data: payload, error: null } },
     detailsFailure: (state, { payload }) => { state.details = { status: 'failed',  data: null,    error: payload } },
     clearDetailsError: (state) => { state.details.error = null; state.details.status = 'idle' },
+
+    // ── analytics ─────────────────────────────────────────
+    analyticsRequest: (state) => { state.analytics = { status: 'pending', data: null, error: null } },
+    analyticsSuccess: (state, { payload }) => { state.analytics = { status: 'success', data: payload, error: null } },
+    analyticsFailure: (state, { payload }) => { state.analytics = { status: 'failed',  data: null,    error: payload } },
+    clearAnalyticsError: (state) => { state.analytics.error = null; state.analytics.status = 'idle' },
 
     // ── create ────────────────────────────────────────────
     createRequest: (state) => { state.create = { status: 'pending', data: null, error: null } },
@@ -60,7 +74,9 @@ export const quizReducer = quizSlice.reducer
 
 // Selectors
 export const selectQuizList    = (s) => s.quiz.list
+export const selectPublicQuizList = (s) => s.quiz.publicList
 export const selectQuizDetails = (s) => s.quiz.details
+export const selectQuizAnalytics = (s) => s.quiz.analytics
 export const selectQuizCreate  = (s) => s.quiz.create
 export const selectQuizDelete  = (s) => s.quiz.delete
 export const selectQuizPublish = (s) => s.quiz.publish

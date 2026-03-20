@@ -34,6 +34,7 @@ export const useSocket = () => {
     s.on('answer_result',      (payload) => dispatch(roomActions.answerResultReceived(payload)))
     s.on('leaderboard_update', (payload) => dispatch(roomActions.leaderboardUpdated(payload)))
     s.on('game_over',          (payload) => dispatch(roomActions.gameOver(payload)))
+    s.on('room_status_update', (payload) => dispatch(roomActions.updateLiveRoom(payload)))
 
     return () => {
       s.disconnect()
@@ -46,6 +47,7 @@ export const useSocket = () => {
     socketRef.current?.emit(event, payload)
   }
 
+  const joinDashboard = ()                           => emit('join_dashboard', {})
   const joinRoom      = (roomCode, userId, userName) => emit('join_room',     { roomCode, userId, userName })
   const markReady     = (roomCode, userId, isReady)  => emit('player_ready',  { roomCode, userId, isReady })
   const startGame     = (roomCode)                   => emit('start_game',    { roomCode })
@@ -55,6 +57,7 @@ export const useSocket = () => {
   return {
     socket: socketRef.current,
     isConnected,
+    joinDashboard,
     joinRoom,
     markReady,
     startGame,

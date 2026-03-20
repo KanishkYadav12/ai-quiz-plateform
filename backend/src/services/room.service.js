@@ -52,6 +52,13 @@ export const getRoomsByParticipant = (userId) =>
     .sort({ createdAt: -1 })
     .lean();
 
+export const getLiveRooms = () =>
+  Room.find({ status: { $in: ["waiting", "active"] } })
+    .populate("quizId", "title topic difficulty totalQuestions")
+    .populate("hostId", "name")
+    .sort({ createdAt: -1 })
+    .lean();
+
 export const updateRoomStatus = async (roomCode, status) => {
   const room = await Room.findOne({ roomCode });
   if (!room) throw new NotFoundException("Room not found.");

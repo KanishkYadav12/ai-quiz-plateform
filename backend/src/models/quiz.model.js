@@ -35,6 +35,12 @@ const quizSchema = new mongoose.Schema(
     timePerQuestion: { type: Number, default: 30 }, // seconds
     questions: { type: [questionSchema], required: true },
     isPublic: { type: Boolean, default: false },
+
+    // Analytics (updated after every game_over)
+    timesPlayed: { type: Number, default: 0 },
+    totalParticipants: { type: Number, default: 0 },
+    totalScoreSum: { type: Number, default: 0 },
+    highestScore: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

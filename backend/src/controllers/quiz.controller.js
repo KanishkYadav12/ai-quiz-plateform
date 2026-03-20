@@ -9,6 +9,8 @@ import {
   getQuizById,
   deleteQuizById,
   toggleQuizPublic,
+  getPublicQuizzes,
+  getQuizAnalytics,
 } from "../services/quiz.service.js";
 
 export const generateQuiz = asyncHandler(async (req, res) => {
@@ -45,4 +47,14 @@ export const publishQuiz = asyncHandler(async (req, res) => {
     isPublic,
   );
   res.status(200).json({ status: "success", data: { quiz } });
+});
+
+export const getPublicQuizzesController = asyncHandler(async (req, res) => {
+  const quizzes = await getPublicQuizzes(req.user._id);
+  res.status(200).json({ status: "success", data: { quizzes } });
+});
+
+export const getQuizAnalyticsController = asyncHandler(async (req, res) => {
+  const analytics = await getQuizAnalytics(req.params.quizId, req.user._id);
+  res.status(200).json({ status: "success", data: { analytics } });
 });

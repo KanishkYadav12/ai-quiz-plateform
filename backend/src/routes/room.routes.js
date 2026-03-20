@@ -4,6 +4,7 @@ import {
   getRoomController,
   getMyRoomsController,
   getRoomHistoryController,
+  getLiveRoomsController,
 } from '../controllers/room.controller.js'
 import { protect } from '../middleware/auth.middleware.js'
 
@@ -13,6 +14,7 @@ const router = Router()
 router.use(protect)
 
 router.post('/create',    createRoomController)
+router.get('/live',       getLiveRoomsController)
 router.get('/my-rooms',   getMyRoomsController)
 router.get('/history',    getRoomHistoryController)
 router.get('/:roomCode',  getRoomController)

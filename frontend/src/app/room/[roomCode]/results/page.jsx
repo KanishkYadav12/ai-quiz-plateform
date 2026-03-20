@@ -2,14 +2,14 @@
 import { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useDispatch, useSelector } from 'react-redux'
-import { Trophy, Medal, Home, RotateCcw, Crown } from 'lucide-react'
+import { Trophy, Medal, Home, Crown, BarChart3, Users, Target, ArrowRight, Share2 } from 'lucide-react'
 import Link from 'next/link'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import AuthGuard from '@/components/layout/AuthGuard'
 import { selectGame, roomActions } from '@/redux/slices/room/roomSlice'
 import { selectCurrentUser } from '@/redux/slices/auth/authSlice'
 
-const RANK_COLORS  = ['#E94560', '#f59e0b', '#3b82f6']
+const RANK_COLORS  = ['var(--gold)', 'var(--silver)', 'var(--bronze)']
 const RANK_LABELS  = ['1st', '2nd', '3rd']
 const RANK_ICONS   = [Crown, Medal, Medal]
 
@@ -20,7 +20,7 @@ export default function ResultsPage() {
   const game         = useSelector(selectGame)
   const currentUser  = useSelector(selectCurrentUser)
 
-  const leaderboard = game.finalResult?.finalLeaderboard || game.leaderboard || []
+  const leaderboard = [...(game.finalResult?.finalLeaderboard || game.leaderboard || [])].sort((a,b) => b.score - a.score)
   const winner      = game.finalResult?.winner || leaderboard[0]
   const myRank      = leaderboard.findIndex(p => p.userId === currentUser?._id) + 1
   const myScore     = leaderboard.find(p => p.userId === currentUser?._id)?.score || 0
@@ -33,119 +33,170 @@ export default function ResultsPage() {
 
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-[#1A1A2E]">
-        <main className="max-w-2xl mx-auto px-4 py-10">
+      <div className="min-h-screen bg-[var(--bg-primary)] page-enter">
+        <main className="max-w-4xl mx-auto px-6 py-12">
 
-          {/* Winner announcement */}
-          <div className="text-center mb-10">
+          {/* Winner Section */}
+          <div className="text-center mb-16 relative">
+            <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
+               <Trophy size={300} className="text-[var(--gold)]" />
+            </div>
+
             {isWinner ? (
-              <>
-                <div className="text-6xl mb-4">🎉</div>
-                <h1 className="text-4xl font-bold text-white mb-2">You Won!</h1>
-                <p className="text-gray-400">Congratulations, you topped the leaderboard!</p>
-              </>
+              <div className="relative z-10">
+                <div className="text-7xl mb-6 animate-bounce">🎉</div>
+                <h1 className="text-5xl font-black text-[var(--text-primary)] mb-4 font-display tracking-tight">Supreme Victory!</h1>
+                <p className="text-[var(--text-secondary)] text-xl font-medium">You dominated the field with <span className="text-[var(--gold)] font-black mono">{myScore}</span> points.</p>
+              </div>
             ) : (
-              <>
-                <div className="text-6xl mb-4">🏆</div>
-                <h1 className="text-3xl font-bold text-white mb-2">
-                  <span className="text-[#E94560]">{winner?.name}</span> wins!
+              <div className="relative z-10">
+                <div className="text-7xl mb-6">🏆</div>
+                <h1 className="text-5xl font-black text-[var(--text-primary)] mb-4 font-display tracking-tight">
+                  <span className="text-[var(--accent-primary)]">{winner?.name}</span> wins!
                 </h1>
-                <p className="text-gray-400">
-                  You finished #{myRank} with {myScore} points
+                <p className="text-[var(--text-secondary)] text-xl font-medium">
+                  You finished <span className="font-black text-[var(--text-primary)]">#{myRank}</span> with <span className="mono">{myScore}</span> points
                 </p>
-              </>
+              </div>
             )}
           </div>
 
-          {/* Top 3 podium */}
-          {leaderboard.length >= 1 && (
-            <div className="flex items-end justify-center gap-4 mb-10">
-              {[1, 0, 2].map((rankIdx) => {
-                const player = leaderboard[rankIdx]
-                if (!player) return <div key={rankIdx} className="w-24" />
-                const Icon   = RANK_ICONS[rankIdx]
-                const height = rankIdx === 0 ? 'h-28' : rankIdx === 1 ? 'h-20' : 'h-16'
+          {/* Podium Visual */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
+
+            {/* Stats Summary */}
+            <div className="lg:col-span-2 space-y-6">
+               <div className="card p-8 bg-[var(--bg-secondary)] border-[var(--border)]">
+                  <h2 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-3 mb-8">
+                    <BarChart3 size={24} className="text-[var(--accent-primary)]" />
+                    Performance Analytics
+                  </h2>
+
+                  {leaderboard.length > 0 && (
+                    <div className="h-[250px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={leaderboard.slice(0, 10)} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
+                          <XAxis dataKey="name" tick={{ fill: 'var(--text-secondary)', fontSize: 10, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 10, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                          <Tooltip
+                            contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--text-primary)', fontWeight: 'bold' }}
+                            cursor={{ fill: 'var(--bg-tertiary)', opacity: 0.4 }}
+                          />
+                          <Bar dataKey="score" radius={[6, 6, 0, 0]} barSize={40}>
+                            {leaderboard.slice(0, 10).map((entry, i) => (
+                              <Cell key={i} fill={entry.userId === currentUser?._id ? 'var(--accent-primary)' : 'var(--bg-tertiary)'} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-4 mt-8 pt-8 border-t border-[var(--border)]">
+                    <div className="text-center">
+                       <div className="text-[10px] font-black uppercase text-[var(--text-disabled)] mb-1">Participants</div>
+                       <div className="text-2xl font-black text-[var(--text-primary)] flex items-center justify-center gap-2">
+                         <Users size={18} className="text-[var(--accent-primary)]" /> {leaderboard.length}
+                       </div>
+                    </div>
+                    <div className="text-center">
+                       <div className="text-[10px] font-black uppercase text-[var(--text-disabled)] mb-1">Top Score</div>
+                       <div className="text-2xl font-black text-[var(--text-primary)] flex items-center justify-center gap-2">
+                         <Trophy size={18} className="text-[var(--gold)]" /> {winner?.score || 0}
+                       </div>
+                    </div>
+                    <div className="text-center">
+                       <div className="text-[10px] font-black uppercase text-[var(--text-disabled)] mb-1">Average</div>
+                       <div className="text-2xl font-black text-[var(--text-primary)] flex items-center justify-center gap-2">
+                         <Target size={18} className="text-[var(--success)]" /> {Math.round(leaderboard.reduce((a,b)=>a+b.score,0)/leaderboard.length)}
+                       </div>
+                    </div>
+                  </div>
+               </div>
+            </div>
+
+            {/* Top 3 List */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[var(--text-disabled)] px-2">Podium</h3>
+              {leaderboard.slice(0, 3).map((player, i) => {
+                const Icon = RANK_ICONS[i]
                 return (
-                  <div key={player.userId} className="flex flex-col items-center gap-2 flex-1 max-w-[120px]">
-                    <Icon size={20} style={{ color: RANK_COLORS[rankIdx] }} />
-                    <div className="w-12 h-12 rounded-full bg-[#0F3460] border-2 flex items-center justify-center text-white font-bold"
-                      style={{ borderColor: RANK_COLORS[rankIdx] }}>
-                      {player.name?.[0]?.toUpperCase()}
+                  <div key={player.userId} className={`card p-6 bg-[var(--bg-secondary)] border-2 flex items-center gap-5 transition-all ${player.userId === currentUser?._id ? "border-[var(--accent-primary)]" : "border-[var(--border)]"}`}>
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 font-black text-xl" style={{ backgroundColor: RANK_COLORS[i] + '20', color: RANK_COLORS[i] }}>
+                      <Icon size={24} />
                     </div>
-                    <span className="text-white text-sm font-medium text-center truncate w-full text-center">
-                      {player.name}
-                    </span>
-                    <div className={`w-full ${height} rounded-t-xl flex items-end justify-center pb-2`}
-                      style={{ backgroundColor: RANK_COLORS[rankIdx] + '30', border: `1px solid ${RANK_COLORS[rankIdx]}50` }}>
-                      <span className="font-bold" style={{ color: RANK_COLORS[rankIdx] }}>{player.score}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-disabled)]">{RANK_LABELS[i]} Place</p>
+                      <p className="font-bold text-[var(--text-primary)] truncate text-lg">{player.name}</p>
                     </div>
-                    <span className="text-gray-400 text-xs">{RANK_LABELS[rankIdx]}</span>
+                    <div className="text-right">
+                       <p className="font-black text-xl text-[var(--text-primary)] mono">{player.score}</p>
+                    </div>
                   </div>
                 )
               })}
-            </div>
-          )}
 
-          {/* Score chart */}
-          {leaderboard.length > 0 && (
-            <div className="bg-[#0F3460]/30 border border-[#0F3460] rounded-2xl p-6 mb-6">
-              <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
-                <Trophy size={16} className="text-[#E94560]" /> Score Breakdown
-              </h2>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={leaderboard} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
-                  <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{ background: '#0F3460', border: 'none', borderRadius: '12px', color: '#fff' }}
-                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                  />
-                  <Bar dataKey="score" radius={[8, 8, 0, 0]}>
-                    {leaderboard.map((entry, i) => (
-                      <Cell key={i} fill={entry.userId === currentUser?._id ? '#E94560' : '#0F3460'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <button className="w-full card p-4 bg-[var(--bg-tertiary)] border-[var(--border)] flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all">
+                <Share2 size={14} /> Share Results
+              </button>
             </div>
-          )}
-
-          {/* Full leaderboard */}
-          <div className="bg-[#0F3460]/30 border border-[#0F3460] rounded-2xl overflow-hidden mb-8">
-            <div className="px-6 py-4 border-b border-[#0F3460]">
-              <h2 className="text-white font-semibold">Final Standings</h2>
-            </div>
-            {leaderboard.map((player, i) => (
-              <div
-                key={player.userId}
-                className={`flex items-center justify-between px-6 py-4 border-b border-[#0F3460]/50 last:border-0 ${
-                  player.userId === currentUser?._id ? 'bg-[#E94560]/10' : ''
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <span className="text-2xl font-bold w-8"
-                    style={{ color: i < 3 ? RANK_COLORS[i] : '#6b7280' }}>
-                    {i + 1}
-                  </span>
-                  <div className="w-9 h-9 rounded-full bg-[#0F3460] flex items-center justify-center text-white font-bold text-sm">
-                    {player.name?.[0]?.toUpperCase()}
-                  </div>
-                  <span className={`font-medium ${player.userId === currentUser?._id ? 'text-[#E94560]' : 'text-white'}`}>
-                    {player.name} {player.userId === currentUser?._id && '(you)'}
-                  </span>
-                </div>
-                <span className="text-white font-bold text-lg">{player.score}</span>
-              </div>
-            ))}
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-3">
+          {/* Full Leaderboard */}
+          <div className="card bg-[var(--bg-secondary)] border-[var(--border)] overflow-hidden mb-12">
+            <div className="px-8 py-6 border-b border-[var(--border)] bg-[var(--bg-tertiary)]/30">
+              <h2 className="font-black uppercase tracking-widest text-sm text-[var(--text-primary)]">Complete Standings</h2>
+            </div>
+            <div className="divide-y divide-[var(--border)]">
+              {leaderboard.map((player, i) => (
+                <div
+                  key={player.userId}
+                  className={`flex items-center justify-between px-8 py-5 transition-all ${
+                    player.userId === currentUser?._id ? 'bg-[var(--accent-muted)]' : 'hover:bg-[var(--bg-tertiary)]/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-6">
+                    <span className="text-xl font-black w-8 mono"
+                      style={{ color: i < 3 ? RANK_COLORS[i] : 'var(--text-disabled)' }}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <div className="w-10 h-10 rounded-xl bg-[var(--bg-primary)] border border-[var(--border)] flex items-center justify-center text-[var(--text-primary)] font-black text-sm shadow-sm">
+                      {player.name?.[0]?.toUpperCase()}
+                    </div>
+                    <div>
+                      <span className={`font-bold text-lg ${player.userId === currentUser?._id ? 'text-[var(--accent-primary)]' : 'text-[var(--text-primary)]'}`}>
+                        {player.name}
+                      </span>
+                      {player.userId === currentUser?._id && (
+                        <span className="ml-3 text-[8px] font-black uppercase tracking-[0.2em] bg-[var(--accent-primary)] text-white px-2 py-0.5 rounded-full">You</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-8">
+                     <div className="hidden sm:block text-right">
+                        <p className="text-[8px] font-black text-[var(--text-disabled)] uppercase tracking-widest mb-1">Efficiency</p>
+                        <p className="text-xs font-bold text-[var(--text-secondary)]">{Math.round((player.score / (game.totalQuestions * 150)) * 100)}%</p>
+                     </div>
+                     <span className="text-[var(--text-primary)] font-black text-2xl mono w-20 text-right">{player.score}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Action Footer */}
+          <div className="flex flex-col sm:flex-row gap-4">
             <button
               onClick={handleLeave}
-              className="flex-1 flex items-center justify-center gap-2 bg-[#E94560] hover:bg-[#c73652] text-white font-semibold py-4 rounded-xl transition-all"
+              className="flex-1 flex items-center justify-center gap-3 bg-[var(--bg-secondary)] border border-[var(--border)] hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] font-black uppercase tracking-widest py-5 rounded-2xl transition-all shadow-sm"
             >
-              <Home size={18} /> Back to Dashboard
+              <Home size={20} /> Return to Dashboard
+            </button>
+            <button
+              onClick={() => router.push('/room/join')}
+              className="flex-1 flex items-center justify-center gap-3 bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white font-black uppercase tracking-widest py-5 rounded-2xl transition-all shadow-lg shadow-[var(--accent-primary)]/20"
+            >
+              Play Another <ArrowRight size={20} />
             </button>
           </div>
         </main>

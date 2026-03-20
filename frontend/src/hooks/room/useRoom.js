@@ -8,12 +8,14 @@ import {
   fetchRoomByCode,
   fetchMyRooms,
   fetchRoomHistory,
+  fetchLiveRooms,
 } from '@/redux/actions/room/roomAction'
 import {
   selectRoomCreate,
   selectRoomDetails,
   selectMyRooms,
   selectRoomHistory,
+  selectLiveRooms,
   selectGame,
   roomActions,
 } from '@/redux/slices/room/roomSlice'
@@ -26,6 +28,7 @@ export const useRoom = () => {
   const detailsOp = useSelector(selectRoomDetails)
   const myRoomsOp = useSelector(selectMyRooms)
   const historyOp = useSelector(selectRoomHistory)
+  const liveRoomsOp = useSelector(selectLiveRooms)
   const game      = useSelector(selectGame)
 
   const [createLoading, setCreateLoading] = useState(false)
@@ -52,11 +55,13 @@ export const useRoom = () => {
     room:          detailsOp.data || null,
     myRooms:       myRoomsOp.data || [],
     history:       historyOp.data || [],
+    liveRooms:     liveRoomsOp.data || [],
     game,
     createLoading,
     detailLoading:  detailsOp.status  === 'pending',
     myRoomsLoading: myRoomsOp.status  === 'pending',
     historyLoading: historyOp.status  === 'pending',
+    liveRoomsLoading: liveRoomsOp.status === 'pending',
     detailError:    detailsOp.error,
 
     // actions
@@ -64,6 +69,7 @@ export const useRoom = () => {
     loadRoom:       (roomCode)  => dispatch(fetchRoomByCode(roomCode)),
     loadMyRooms:    ()          => dispatch(fetchMyRooms()),
     loadHistory:    ()          => dispatch(fetchRoomHistory()),
+    loadLiveRooms:  ()          => dispatch(fetchLiveRooms()),
     resetGame:      ()          => dispatch(roomActions.resetGame()),
   }
 }

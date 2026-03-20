@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
-import { CheckCircle, XCircle, Trophy, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, Trophy, Clock, AlertTriangle, ChevronRight, Hash, Loader2 } from "lucide-react";
 import AuthGuard from "@/components/layout/AuthGuard";
 import { useSocket } from "@/hooks/socket/useSocket";
 import { selectGame } from "@/redux/slices/room/roomSlice";
@@ -10,35 +10,39 @@ import { selectCurrentUser } from "@/redux/slices/auth/authSlice";
 
 function TimerRing({ timeLeft, total }) {
   const pct = timeLeft / total;
-  const radius = 36;
+  const radius = 32;
   const circ = 2 * Math.PI * radius;
   const dash = pct * circ;
-  const color =
-    timeLeft <= 5 ? "#E94560" : timeLeft <= 10 ? "#f59e0b" : "#22c55e";
+
+  let color = "var(--success)";
+  if (timeLeft <= 5) color = "var(--error)";
+  else if (timeLeft <= 10) color = "var(--warning)";
 
   return (
-    <div className="relative flex items-center justify-center w-24 h-24">
-      <svg className="absolute -rotate-90" width="96" height="96">
+    <div className="relative flex items-center justify-center w-20 h-20">
+      <svg className="absolute -rotate-90" width="80" height="80">
         <circle
-          cx="48"
-          cy="48"
+          cx="40"
+          cy="40"
           r={radius}
           fill="none"
-          stroke="#1A1A2E"
+          stroke="var(--bg-tertiary)"
           strokeWidth="6"
         />
         <circle
-          cx="48"
-          cy="48"
+          cx="40"
+          cy="40"
           r={radius}
           fill="none"
           stroke={color}
           strokeWidth="6"
           strokeDasharray={`${dash} ${circ}`}
-          style={{ transition: "stroke-dasharray 1s linear, stroke 0.5s" }}
+          strokeLinecap="round"
+          style={{ transition: "stroke-dasharray 1s linear, stroke 0.5s", filter: timeLeft <= 5 ? "drop-shadow(0 0 4px var(--error))" : "none" }}
+          className={timeLeft <= 5 ? "animate-pulse" : ""}
         />
       </svg>
-      <span className={`text-3xl font-bold z-10`} style={{ color }}>
+      <span className="text-2xl font-black z-10 mono" style={{ color }}>
         {timeLeft}
       </span>
     </div>
@@ -110,153 +114,177 @@ export default function GamePlayPage() {
 
   const getOptionStyle = (option) => {
     if (!answered) {
-      return "bg-[#0F3460]/40 border border-[#0F3460] text-white hover:border-[#E94560] hover:bg-[#E94560]/10 cursor-pointer";
+      return "bg-[var(--bg-secondary)] border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--accent-primary)] hover:bg-[var(--accent-muted)] cursor-pointer group";
     }
     const ar = game.answerResult;
     if (option === ar?.correctAnswer)
-      return "bg-green-500/20 border border-green-500 text-green-300";
+      return "bg-[var(--success-muted)] border-[var(--success)] text-[var(--success)] shadow-[0_0_15px_rgba(63,185,80,0.15)]";
     if (option === selected && !ar?.isCorrect)
-      return "bg-red-500/20 border border-red-500 text-red-300";
-    return "bg-[#0F3460]/20 border border-[#0F3460]/50 text-gray-500";
+      return "bg-[var(--error-muted)] border-[var(--error)] text-[var(--error)]";
+    return "bg-[var(--bg-tertiary)] border-[var(--border)] text-[var(--text-disabled)] opacity-50";
   };
 
   const q = game.currentQuestion;
   if (!q)
     return (
-      <div className="min-h-screen bg-[#1A1A2E] flex items-center justify-center">
-        <p className="text-xl text-white">Waiting for game...</p>
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center page-enter">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 size={40} className="animate-spin text-[var(--accent-primary)]" />
+          <p className="text-xl font-bold text-[var(--text-primary)]">Syncing with room...</p>
+        </div>
       </div>
     );
 
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-[#1A1A2E] flex flex-col">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col page-enter">
         {/* Top bar */}
-        <div className="bg-[#0F3460]/50 border-b border-[#0F3460] px-4 py-3">
-          <div className="flex items-center justify-between max-w-3xl mx-auto">
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-400">Question</span>
-              <span className="text-lg font-bold text-white">
-                {game.questionIndex + 1}
-              </span>
-              <span className="text-sm text-gray-500">
-                / {game.totalQuestions}
-              </span>
+        <header className="bg-[var(--bg-secondary)] border-b border-[var(--border)] px-6 py-4 sticky top-0 z-50">
+          <div className="flex items-center justify-between max-w-4xl mx-auto">
+            <div className="flex items-center gap-6">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-disabled)] mb-1">Room Code</span>
+                <span className="mono font-bold text-[var(--accent-primary)]">{roomCode}</span>
+              </div>
+              <div className="h-8 w-px bg-[var(--border)]" />
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-black text-[var(--text-primary)] font-display">
+                  {game.questionIndex + 1}
+                </span>
+                <span className="text-sm font-bold text-[var(--text-secondary)]">
+                  / {game.totalQuestions}
+                </span>
+              </div>
             </div>
-            <TimerRing timeLeft={timeLeft} total={game.timePerQuestion || 30} />
-            <div className="flex items-center gap-2">
-              <Trophy size={16} className="text-[#E94560]" />
-              <span className="font-bold text-white">
-                {game.leaderboard?.find((p) => p.userId === currentUser?._id)
-                  ?.score || 0}
-              </span>
-            </div>
-          </div>
-          {/* Progress bar */}
-          <div className="max-w-3xl mx-auto mt-2">
-            <div className="h-1 bg-[#0F3460] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#E94560] transition-all duration-1000"
-                style={{
-                  width: `${((game.questionIndex + 1) / game.totalQuestions) * 100}%`,
-                }}
-              />
-            </div>
-          </div>
-        </div>
 
-        {/* Question */}
-        <div className="flex flex-col flex-1 w-full max-w-3xl px-4 py-10 mx-auto">
-          <div className="bg-[#0F3460]/30 border border-[#0F3460] rounded-2xl p-8 mb-8 text-center">
-            <p className="text-2xl font-semibold leading-relaxed text-white">
+            <div className="flex items-center gap-8">
+              <TimerRing timeLeft={timeLeft} total={game.timePerQuestion || 30} />
+
+              <div className="hidden sm:flex flex-col items-end">
+                 <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-disabled)] mb-1">Your Score</span>
+                 <div className="flex items-center gap-2">
+                    <Trophy size={18} className="text-[var(--gold)]" />
+                    <span className="text-xl font-black text-[var(--text-primary)] mono">
+                      {game.leaderboard?.find((p) => p.userId === currentUser?._id)?.score || 0}
+                    </span>
+                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Global Progress */}
+          <div className="max-w-4xl mx-auto mt-4 h-1.5 bg-[var(--bg-tertiary)] rounded-full overflow-hidden border border-[var(--border)]">
+            <div
+              className="h-full bg-[var(--accent-primary)] transition-all duration-1000 shadow-[0_0_10px_rgba(88,166,255,0.5)]"
+              style={{
+                width: `${((game.questionIndex + 1) / game.totalQuestions) * 100}%`,
+              }}
+            />
+          </div>
+        </header>
+
+        <main className="flex-1 w-full max-w-4xl px-6 py-12 mx-auto">
+          {/* Question card */}
+          <div className="card p-10 mb-10 text-center bg-[var(--bg-secondary)] border-[var(--border)] shadow-xl relative">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[var(--accent-primary)] text-white text-[10px] font-black px-4 py-1 rounded-full uppercase tracking-widest">
+              Question {game.questionIndex + 1}
+            </div>
+            <p className="text-3xl font-bold leading-tight text-[var(--text-primary)] font-display">
               {q.questionText}
             </p>
           </div>
 
-          {/* Options */}
-          <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Options grid */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {q.options?.map((option, i) => (
               <button
                 key={i}
                 onClick={() => handleAnswer(option)}
                 disabled={answered}
-                className={`p-5 rounded-2xl text-left font-medium transition-all text-lg ${getOptionStyle(option)}`}
+                className={`p-6 rounded-2xl text-left font-bold transition-all text-xl border-2 flex items-center gap-4 ${getOptionStyle(option)}`}
               >
-                <span className="inline-flex items-center justify-center w-8 h-8 mr-3 text-sm font-bold rounded-lg bg-white/10">
+                <span className="w-10 h-10 flex items-center justify-center text-sm font-black rounded-xl bg-[var(--bg-tertiary)] group-hover:bg-[var(--bg-primary)] transition-colors shrink-0 mono">
                   {["A", "B", "C", "D"][i]}
                 </span>
-                {option}
+                <span className="flex-1">{option}</span>
+                {answered && option === game.answerResult?.correctAnswer && <CheckCircle2 size={24} className="text-[var(--success)]" />}
+                {answered && option === selected && !game.answerResult?.isCorrect && <XCircle size={24} className="text-[var(--error)]" />}
               </button>
             ))}
           </div>
 
-          {/* Answer feedback */}
-          {answered && game.answerResult && (
-            <div
-              className={`mt-6 flex items-center justify-between p-4 rounded-2xl border ${
-                game.answerResult.isCorrect
-                  ? "bg-green-500/10 border-green-500/40"
-                  : "bg-red-500/10 border-red-500/40"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                {game.answerResult.isCorrect ? (
-                  <CheckCircle size={20} className="text-green-400" />
-                ) : (
-                  <XCircle size={20} className="text-red-400" />
+          {/* Instant feedback footer */}
+          <div className="h-32 mt-10">
+            {answered && game.answerResult && (
+              <div
+                className={`p-6 rounded-2xl border-2 flex items-center justify-between animate-[fadeSlideUp_0.3s_ease] ${
+                  game.answerResult.isCorrect
+                    ? "bg-[var(--success-muted)] border-[var(--success)]"
+                    : "bg-[var(--error-muted)] border-[var(--error)]"
+                }`}
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${game.answerResult.isCorrect ? "bg-[var(--success)] text-white" : "bg-[var(--error)] text-white"}`}>
+                    {game.answerResult.isCorrect ? <CheckCircle2 size={28} /> : <AlertTriangle size={28} />}
+                  </div>
+                  <div>
+                    <h4 className={`text-xl font-black ${game.answerResult.isCorrect ? "text-[var(--success)]" : "text-[var(--error)]"}`}>
+                      {game.answerResult.isCorrect ? "Brilliant!" : "Not quite!"}
+                    </h4>
+                    {!game.answerResult.isCorrect && (
+                      <p className="text-[var(--text-secondary)] font-bold">The answer was: {game.answerResult.correctAnswer}</p>
+                    )}
+                  </div>
+                </div>
+                {game.answerResult.isCorrect && (
+                  <div className="text-right">
+                    <span className="block text-[10px] font-black text-[var(--success)] uppercase tracking-widest">Points Earned</span>
+                    <span className="text-3xl font-black text-[var(--success)] mono">+{game.answerResult.pointsEarned}</span>
+                  </div>
                 )}
-                <span
-                  className={`font-semibold ${game.answerResult.isCorrect ? "text-green-300" : "text-red-300"}`}
-                >
-                  {game.answerResult.isCorrect
-                    ? "Correct!"
-                    : `Wrong — ${game.answerResult.correctAnswer}`}
-                </span>
               </div>
-              {game.answerResult.isCorrect && (
-                <span className="text-lg font-bold text-green-400">
-                  +{game.answerResult.pointsEarned}
-                </span>
-              )}
-            </div>
-          )}
+            )}
 
-          {answered && !game.answerResult && (
-            <div className="flex items-center justify-center gap-2 p-4 mt-6 text-gray-400 rounded-2xl bg-white/5">
-              <Clock size={16} />
-              <span>Waiting for next question...</span>
-            </div>
-          )}
+            {answered && !game.answerResult && (
+              <div className="flex flex-col items-center justify-center gap-3 p-8 text-[var(--text-secondary)] rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border)] border-dashed border-2">
+                <Clock size={32} className="animate-pulse" />
+                <span className="font-bold uppercase tracking-widest text-xs">Waiting for other players...</span>
+              </div>
+            )}
+          </div>
 
-          {/* Live leaderboard */}
+          {/* Live Leaderboard Overlay */}
           {game.leaderboard?.length > 0 && (
-            <div className="mt-6 bg-[#0F3460]/20 border border-[#0F3460]/50 rounded-2xl p-4">
-              <p className="mb-3 text-xs tracking-widest text-gray-400 uppercase">
-                Live Standings
-              </p>
-              <div className="space-y-2">
+            <div className="mt-12">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-lg bg-[var(--gold)]/10 flex items-center justify-center text-[var(--gold)]">
+                  <Trophy size={16} />
+                </div>
+                <h3 className="font-black text-sm uppercase tracking-[0.2em] text-[var(--text-secondary)]">Live Standings</h3>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {game.leaderboard.slice(0, 3).map((p, i) => (
                   <div
                     key={p.userId}
-                    className="flex items-center justify-between"
+                    className={`card p-4 flex items-center gap-4 bg-[var(--bg-secondary)] border-[var(--border)] ${p.userId === currentUser?._id ? "border-[var(--accent-primary)] ring-1 ring-[var(--accent-primary)]/20" : ""}`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="w-4 text-sm text-gray-500">{i + 1}</span>
-                      <span
-                        className={`text-sm font-medium ${p.userId === currentUser?._id ? "text-[#E94560]" : "text-gray-300"}`}
-                      >
-                        {p.name} {p.userId === currentUser?._id && "(you)"}
-                      </span>
+                    <div className="w-10 h-10 rounded-xl bg-[var(--bg-tertiary)] flex items-center justify-center font-black text-[var(--text-secondary)] shrink-0 mono">
+                      {i + 1}
                     </div>
-                    <span className="text-sm font-bold text-white">
-                      {p.score}
-                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-bold truncate ${p.userId === currentUser?._id ? "text-[var(--accent-primary)]" : "text-[var(--text-primary)]"}`}>
+                        {p.name}
+                      </p>
+                      <p className="text-[10px] font-black text-[var(--text-disabled)] uppercase mono">{p.score} PTS</p>
+                    </div>
+                    {p.userId === currentUser?._id && <div className="w-2 h-2 rounded-full bg-[var(--accent-primary)] animate-pulse" />}
                   </div>
                 ))}
               </div>
             </div>
           )}
-        </div>
+        </main>
       </div>
     </AuthGuard>
   );
