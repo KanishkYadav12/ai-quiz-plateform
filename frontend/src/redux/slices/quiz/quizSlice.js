@@ -1,0 +1,66 @@
+import { createSlice } from '@reduxjs/toolkit'
+
+const op = () => ({ status: 'idle', data: null, error: null })
+
+const initialState = {
+  list:    op(),
+  details: op(),
+  create:  op(),
+  delete:  op(),
+  publish: op(),
+}
+
+const quizSlice = createSlice({
+  name: 'quiz',
+  initialState,
+  reducers: {
+    // ── list ──────────────────────────────────────────────
+    listRequest:  (state) => { state.list = { status: 'pending', data: null, error: null } },
+    listSuccess:  (state, { payload }) => { state.list = { status: 'success', data: payload, error: null } },
+    listFailure:  (state, { payload }) => { state.list = { status: 'failed',  data: null,    error: payload } },
+    clearListError: (state) => { state.list.error = null; state.list.status = 'idle' },
+
+    // ── details ───────────────────────────────────────────
+    detailsRequest: (state) => { state.details = { status: 'pending', data: null, error: null } },
+    detailsSuccess: (state, { payload }) => { state.details = { status: 'success', data: payload, error: null } },
+    detailsFailure: (state, { payload }) => { state.details = { status: 'failed',  data: null,    error: payload } },
+    clearDetailsError: (state) => { state.details.error = null; state.details.status = 'idle' },
+
+    // ── create ────────────────────────────────────────────
+    createRequest: (state) => { state.create = { status: 'pending', data: null, error: null } },
+    createSuccess: (state, { payload }) => { state.create = { status: 'success', data: payload, error: null } },
+    createFailure: (state, { payload }) => { state.create = { status: 'failed',  data: null,    error: payload } },
+    clearCreate:   (state) => { state.create = { status: 'idle', data: null, error: null } },
+
+    // ── delete ────────────────────────────────────────────
+    deleteRequest: (state) => { state.delete = { status: 'pending', data: null, error: null } },
+    deleteSuccess: (state, { payload }) => {
+      state.delete = { status: 'success', data: payload, error: null }
+      // Remove from list if loaded
+      if (state.list.data) {
+        state.list.data = state.list.data.filter((q) => q._id !== payload.quizId)
+      }
+    },
+    deleteFailure: (state, { payload }) => { state.delete = { status: 'failed', data: null, error: payload } },
+    clearDelete:   (state) => { state.delete = { status: 'idle', data: null, error: null } },
+
+    // ── publish toggle ────────────────────────────────────
+    publishRequest: (state) => { state.publish = { status: 'pending', data: null, error: null } },
+    publishSuccess: (state, { payload }) => {
+      state.publish = { status: 'success', data: payload, error: null }
+      if (state.details.data?._id === payload._id) state.details.data = payload
+    },
+    publishFailure: (state, { payload }) => { state.publish = { status: 'failed', data: null, error: payload } },
+    clearPublish:   (state) => { state.publish = { status: 'idle', data: null, error: null } },
+  },
+})
+
+export const quizActions = quizSlice.actions
+export const quizReducer = quizSlice.reducer
+
+// Selectors
+export const selectQuizList    = (s) => s.quiz.list
+export const selectQuizDetails = (s) => s.quiz.details
+export const selectQuizCreate  = (s) => s.quiz.create
+export const selectQuizDelete  = (s) => s.quiz.delete
+export const selectQuizPublish = (s) => s.quiz.publish

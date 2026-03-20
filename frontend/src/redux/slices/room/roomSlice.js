@@ -1,0 +1,135 @@
+import { createSlice } from "@reduxjs/toolkit";
+
+const op = () => ({ status: "idle", data: null, error: null });
+
+const initialState = {
+  create: op(),
+  details: op(),
+  myRooms: op(),
+  history: op(),
+  game: {
+    roomCode: null,
+    status: "idle",
+    players: [],
+    currentQuestion: null,
+    questionIndex: 0,
+    totalQuestions: 0,
+    timePerQuestion: 30,
+    leaderboard: [],
+    answerResult: null,
+    finalResult: null,
+  },
+};
+
+const roomSlice = createSlice({
+  name: "room",
+  initialState,
+  reducers: {
+    // ── create ────────────────────────────────────────────
+    createRequest: (state) => {
+      state.create = { status: "pending", data: null, error: null };
+    },
+    createSuccess: (state, { payload }) => {
+      state.create = { status: "success", data: payload, error: null };
+    },
+    createFailure: (state, { payload }) => {
+      state.create = { status: "failed", data: null, error: payload };
+    },
+    clearCreate: (state) => {
+      state.create = { status: "idle", data: null, error: null };
+    },
+
+    // ── details ───────────────────────────────────────────
+    detailsRequest: (state) => {
+      state.details = { status: "pending", data: null, error: null };
+    },
+    detailsSuccess: (state, { payload }) => {
+      state.details = { status: "success", data: payload, error: null };
+    },
+    detailsFailure: (state, { payload }) => {
+      state.details = { status: "failed", data: null, error: payload };
+    },
+
+    // ── my rooms ──────────────────────────────────────────
+    myRoomsRequest: (state) => {
+      state.myRooms = { status: "pending", data: null, error: null };
+    },
+    myRoomsSuccess: (state, { payload }) => {
+      state.myRooms = { status: "success", data: payload, error: null };
+    },
+    myRoomsFailure: (state, { payload }) => {
+      state.myRooms = { status: "failed", data: null, error: payload };
+    },
+
+    // ── history ───────────────────────────────────────────
+    historyRequest: (state) => {
+      state.history = { status: "pending", data: null, error: null };
+    },
+    historySuccess: (state, { payload }) => {
+      state.history = { status: "success", data: payload, error: null };
+    },
+    historyFailure: (state, { payload }) => {
+      state.history = { status: "failed", data: null, error: payload };
+    },
+
+    // ── live game state (socket-driven) ───────────────────
+    setRoomJoined: (state, { payload }) => {
+      state.game.roomCode = payload.room.roomCode;
+      state.game.status = "waiting";
+      state.game.players = payload.players;
+      state.game.hostId = payload.room.hostId;
+    },
+    playerJoined: (state, { payload }) => {
+      const exists = state.game.players.find(
+        (p) => p.userId === payload.player.userId,
+      );
+      if (!exists) state.game.players.push(payload.player);
+    },
+    playerLeft: (state, { payload }) => {
+      state.game.players = state.game.players.filter(
+        (p) => p.userId !== payload.userId,
+      );
+    },
+    playerReadyUpdated: (state, { payload }) => {
+      const p = state.game.players.find((p) => p.userId === payload.userId);
+      if (p) p.isReady = payload.isReady;
+    },
+    gameStarted: (state, { payload }) => {
+      state.game.status = "active";
+      state.game.currentQuestion = payload.firstQuestion;
+      state.game.questionIndex = 0;
+      state.game.totalQuestions = payload.totalQuestions;
+      state.game.timePerQuestion = payload.timePerQuestion;
+      state.game.answerResult = null;
+    },
+    questionUpdated: (state, { payload }) => {
+      state.game.currentQuestion = payload.question;
+      state.game.questionIndex = payload.questionIndex;
+      state.game.answerResult = null;
+    },
+    answerResultReceived: (state, { payload }) => {
+      state.game.answerResult = payload;
+    },
+    leaderboardUpdated: (state, { payload }) => {
+      state.game.leaderboard = payload.leaderboard;
+    },
+    gameOver: (state, { payload }) => {
+      state.game.status = "completed";
+      state.game.finalResult = payload;
+      state.game.leaderboard = payload.finalLeaderboard;
+    },
+    resetGame: (state) => {
+      state.game = initialState.game;
+    },
+  },
+});
+
+export const roomActions = roomSlice.actions;
+export const roomReducer = roomSlice.reducer;
+
+// Selectors
+export const selectRoomCreate = (s) => s.room.create;
+export const selectRoomDetails = (s) => s.room.details;
+export const selectMyRooms = (s) => s.room.myRooms;
+export const selectRoomHistory = (s) => s.room.history;
+export const selectGame = (s) => s.room.game;
