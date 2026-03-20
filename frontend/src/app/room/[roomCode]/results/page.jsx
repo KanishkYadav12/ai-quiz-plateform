@@ -2,12 +2,13 @@
 import { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useDispatch, useSelector } from 'react-redux'
-import { Trophy, Medal, Home, Crown, BarChart3, Users, Target, ArrowRight, Share2, Sparkles, Zap, ShieldAlert } from 'lucide-react'
+import { Trophy, Medal, Home, Crown, BarChart3, Users, Target, ArrowRight, Share2, Sparkles, Zap, ShieldAlert, Star } from 'lucide-react'
 import Link from 'next/link'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import AuthGuard from '@/components/layout/AuthGuard'
 import { selectGame, roomActions } from '@/redux/slices/room/roomSlice'
 import { selectCurrentUser } from '@/redux/slices/auth/authSlice'
+import { useQuiz } from '@/hooks/quiz/useQuiz'
 
 const RANK_COLORS  = ['var(--gold)', 'var(--silver)', 'var(--bronze)']
 const RANK_LABELS  = ['1st', '2nd', '3rd']
@@ -19,6 +20,10 @@ export default function ResultsPage() {
   const dispatch     = useDispatch()
   const game         = useSelector(selectGame)
   const currentUser  = useSelector(selectCurrentUser)
+  const { submitRating, quiz } = useQuiz()
+
+  const [userRating, setUserRating] = useState(0)
+  const [hoverRating, setHoverRating] = useState(0)
 
   const leaderboard = [...(game.finalResult?.finalLeaderboard || game.leaderboard || [])].sort((a,b) => b.score - a.score)
   const winner      = game.finalResult?.winner || leaderboard[0]
@@ -30,6 +35,13 @@ export default function ResultsPage() {
   const handleLeave = () => {
     dispatch(roomActions.resetGame())
     router.push('/dashboard')
+  }
+
+  const onRate = (val) => {
+    setUserRating(val)
+    if (game.finalResult?.quizId || game.quizId) {
+       submitRating(game.finalResult?.quizId || game.quizId, val)
+    }
   }
 
   return (
@@ -117,7 +129,7 @@ export default function ResultsPage() {
             </div>
 
             {/* Top 3 List */}
-            <div className="space-y-4">
+          <div className="space-y-4 lg:sticky lg:top-24 h-fit">
               <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[var(--text-disabled)] px-2">Podium</h3>
               {leaderboard.slice(0, 3).map((player, i) => {
                 const Icon = RANK_ICONS[i]
@@ -189,6 +201,29 @@ export default function ResultsPage() {
               ))}
             </div>
           </div>
+
+          {/* Rating Section (Only if not host and public quiz) */}
+          {game.hostId !== currentUser?._id && (
+             <div className="card p-8 bg-[var(--bg-secondary)] border-[var(--border)] mb-12 text-center">
+                <h3 className="text-sm font-black uppercase tracking-widest text-[var(--text-disabled)] mb-4">How was the Quiz?</h3>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                   {[1,2,3,4,5].map(i => (
+                     <button
+                        key={i}
+                        onMouseEnter={() => setHoverRating(i)}
+                        onMouseLeave={() => setHoverRating(0)}
+                        onClick={() => onRate(i)}
+                        className={`transition-all ${i <= (hoverRating || userRating) ? "text-[var(--gold)] scale-125" : "text-[var(--border-strong)]"}`}
+                     >
+                        <Star size={32} fill={i <= (hoverRating || userRating) ? "currentColor" : "none"} />
+                     </button>
+                   ))}
+                </div>
+                <p className="text-[10px] font-bold text-[var(--text-secondary)] mt-4 uppercase tracking-widest">
+                   {userRating > 0 ? "Thanks for your feedback!" : "Tap to rate this quiz"}
+                </p>
+             </div>
+          )}
 
           {/* Rewards Section */}
           {myRewards && (

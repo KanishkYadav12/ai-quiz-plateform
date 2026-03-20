@@ -11,6 +11,7 @@ import {
   toggleQuizPublish,
   fetchPublicQuizzes,
   fetchQuizAnalytics,
+  rateQuiz as rateQuizAction,
 } from '@/redux/actions/quiz/quizAction'
 import {
   selectQuizList,
@@ -20,6 +21,7 @@ import {
   selectQuizCreate,
   selectQuizDelete,
   selectQuizPublish,
+  selectQuizRate,
   quizActions,
 } from '@/redux/slices/quiz/quizSlice'
 
@@ -34,6 +36,7 @@ export const useQuiz = () => {
   const createOp  = useSelector(selectQuizCreate)
   const deleteOp  = useSelector(selectQuizDelete)
   const publishOp = useSelector(selectQuizPublish)
+  const rateOp    = useSelector(selectQuizRate)
 
   const [createLoading, setCreateLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -82,6 +85,18 @@ export const useQuiz = () => {
     }
   }, [publishOp.status])
 
+  // ── rate effect ──────────────────────────────────────────
+  useEffect(() => {
+    if (rateOp.status === 'success') {
+      toast.success('Rating submitted! Thank you.')
+      dispatch(quizActions.clearRate())
+    }
+    if (rateOp.status === 'failed') {
+      toast.error(rateOp.error || 'Failed to submit rating')
+      dispatch(quizActions.clearRate())
+    }
+  }, [rateOp.status])
+
   return {
     // state
     quizzes:       listOp.data    || [],
@@ -105,5 +120,6 @@ export const useQuiz = () => {
     loadAnalytics: (quizId)             => dispatch(fetchQuizAnalytics(quizId)),
     removeQuiz:    (quizId)             => dispatch(deleteQuiz(quizId)),
     publishQuiz:   (quizId, isPublic)   => dispatch(toggleQuizPublish(quizId, isPublic)),
+    submitRating:  (quizId, rating)     => dispatch(rateQuizAction(quizId, rating)),
   }
 }

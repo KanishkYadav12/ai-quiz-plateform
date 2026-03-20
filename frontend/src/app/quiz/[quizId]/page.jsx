@@ -110,7 +110,7 @@ export default function QuizAnalyticsPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
             {/* Main Content: Questions Analysis */}
-            <div className="lg:col-span-2 space-y-8">
+            <div className="order-2 lg:order-1 lg:col-span-2 space-y-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-3">
                   <BarChart3 size={24} className="text-[var(--accent-primary)]" />
@@ -190,7 +190,7 @@ export default function QuizAnalyticsPage() {
             </div>
 
             {/* Sidebar: Session History */}
-            <div className="space-y-8">
+            <div className="order-1 lg:order-2 space-y-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-3">
                   <Calendar size={24} className="text-[var(--accent-primary)]" />

@@ -115,6 +115,7 @@ const endGame = async (io, roomCode) => {
     finalLeaderboard,
     winner,
     rewards,
+    quizId: state.quiz._id,
   });
 
   // Persist final scores to MongoDB
@@ -250,6 +251,7 @@ export const registerSocketHandlers = (io) => {
             roomCode,
             status: state.status,
             hostId: state.hostId,
+            quizId: state.quiz._id,
             currentQuestionIndex: state.currentQuestionIndex,
             totalQuestions: state.quiz.questions.length,
             timePerQuestion: state.quiz.timePerQuestion,

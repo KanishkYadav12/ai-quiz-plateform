@@ -13,6 +13,18 @@ export const generateQuiz = (payload) => async (dispatch) => {
   }
 }
 
+export const rateQuiz = (quizId, rating) => async (dispatch) => {
+  dispatch(quizActions.rateRequest())
+  try {
+    const data = await quizService.rateQuiz(quizId, rating)
+    dispatch(quizActions.rateSuccess(data.data.quiz))
+  } catch (err) {
+    dispatch(quizActions.rateFailure(
+      err.response?.data?.message || 'Failed to submit rating'
+    ))
+  }
+}
+
 export const fetchQuizAnalytics = (quizId) => async (dispatch) => {
   dispatch(quizActions.analyticsRequest())
   try {

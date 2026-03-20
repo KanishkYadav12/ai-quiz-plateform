@@ -20,7 +20,6 @@ import Navbar from "@/components/layout/Navbar";
 import AuthGuard from "@/components/layout/AuthGuard";
 import { fetchUserProfile } from "@/redux/actions/user/userAction";
 import { selectUserProfile, userActions } from "@/redux/slices/user/userSlice";
-import { BADGES } from "@/../../backend/src/services/coin.service.js"; // Note: In a real project, these definitions would be shared or duplicated
 
 // Duplicating BADGE icons here since frontend can't easily import from backend/src in all environments
 const BADGE_ICONS = {

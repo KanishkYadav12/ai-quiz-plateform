@@ -11,6 +11,7 @@ import {
   toggleQuizPublic,
   getPublicQuizzes,
   getQuizAnalytics,
+  rateQuiz,
 } from "../services/quiz.service.js";
 
 export const generateQuiz = asyncHandler(async (req, res) => {
@@ -57,4 +58,10 @@ export const getPublicQuizzesController = asyncHandler(async (req, res) => {
 export const getQuizAnalyticsController = asyncHandler(async (req, res) => {
   const analytics = await getQuizAnalytics(req.params.quizId, req.user._id);
   res.status(200).json({ status: "success", data: { analytics } });
+});
+
+export const rateQuizController = asyncHandler(async (req, res) => {
+  const { rating } = req.body;
+  const quiz = await rateQuiz(req.params.quizId, req.user._id, rating);
+  res.status(200).json({ status: "success", data: { quiz } });
 });

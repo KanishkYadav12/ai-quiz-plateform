@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema(
     totalCoins: { type: Number, default: 0 },
     gamesPlayed: { type: Number, default: 0 },
     gamesWon: { type: Number, default: 0 },
+    winStreak: { type: Number, default: 0 },
     coinRatio: { type: Number, default: 0 },
     totalScore: { type: Number, default: 0 },
     bestScore: { type: Number, default: 0 },

@@ -6,6 +6,7 @@ export const quizService = {
   getPublic:   ()                 => axiosRequest('GET',    '/quiz/public'),
   getById:     (quizId)           => axiosRequest('GET',    `/quiz/${quizId}`),
   getAnalytics: (quizId)          => axiosRequest('GET',    `/quiz/${quizId}/analytics`),
+  rateQuiz:    (quizId, rating)   => axiosRequest('POST',   `/quiz/${quizId}/rate`, { rating }),
   deleteQuiz:  (quizId)           => axiosRequest('DELETE', `/quiz/${quizId}`),
   togglePublish: (quizId, isPublic) => axiosRequest('PATCH', `/quiz/${quizId}/publish`, { isPublic }),
 }

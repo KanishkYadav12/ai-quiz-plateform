@@ -112,6 +112,7 @@ const roomSlice = createSlice({
       state.game.status = payload.room.status;
       state.game.players = payload.players;
       state.game.hostId = payload.room.hostId;
+      state.game.quizId = payload.room.quizId;
 
       if (payload.room.status === "active") {
         state.game.currentQuestion = payload.currentQuestion;

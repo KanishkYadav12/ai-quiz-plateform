@@ -1,5 +1,6 @@
 import { Quiz } from "../models/quiz.model.js";
 import { Room } from "../models/room.model.js";
+import { BadRequestException } from "../utils/exceptions.js";
 import { generateQuestionsFromAI } from "../config/groq.config.js";
 import { NotFoundException, ForbiddenException } from "../utils/exceptions.js";
 
@@ -114,6 +115,13 @@ export const getQuizById = async (quizId, userId) => {
     );
   }
 
+  // Strip questions for public view if not the owner
+  if (!isOwner && quiz.isPublic) {
+    const publicQuiz = quiz.toObject();
+    delete publicQuiz.questions;
+    return publicQuiz;
+  }
+
   return quiz;
 };
 
@@ -126,6 +134,32 @@ export const deleteQuizById = async (quizId, userId) => {
   }
 
   await quiz.deleteOne();
+};
+
+export const rateQuiz = async (quizId, userId, score) => {
+  if (!score || score < 1 || score > 5) {
+    throw new BadRequestException("Rating must be between 1 and 5");
+  }
+
+  const quiz = await Quiz.findById(quizId);
+  if (!quiz) throw new NotFoundException("Quiz not found");
+
+  if (quiz.createdBy.toString() === userId.toString()) {
+    throw new BadRequestException("You cannot rate your own quiz");
+  }
+
+  const existingRating = quiz.ratings.find(
+    (r) => r.userId.toString() === userId.toString(),
+  );
+
+  if (existingRating) {
+    existingRating.score = score;
+  } else {
+    quiz.ratings.push({ userId, score });
+  }
+
+  await quiz.save();
+  return quiz;
 };
 
 export const toggleQuizPublic = async (quizId, userId, isPublic) => {

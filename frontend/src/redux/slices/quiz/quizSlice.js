@@ -10,6 +10,7 @@ const initialState = {
   create:  op(),
   delete:  op(),
   publish: op(),
+  rate:    op(),
 }
 
 const quizSlice = createSlice({
@@ -66,6 +67,20 @@ const quizSlice = createSlice({
     },
     publishFailure: (state, { payload }) => { state.publish = { status: 'failed', data: null, error: payload } },
     clearPublish:   (state) => { state.publish = { status: 'idle', data: null, error: null } },
+
+    // ── rate ──────────────────────────────────────────────
+    rateRequest: (state) => { state.rate = { status: 'pending', data: null, error: null } },
+    rateSuccess: (state, { payload }) => {
+      state.rate = { status: 'success', data: payload, error: null }
+      if (state.details.data?._id === payload._id) state.details.data = payload
+      // Also update in public list if exists
+      if (state.publicList.data) {
+        const idx = state.publicList.data.findIndex(q => q._id === payload._id)
+        if (idx !== -1) state.publicList.data[idx] = payload
+      }
+    },
+    rateFailure: (state, { payload }) => { state.rate = { status: 'failed', data: null, error: payload } },
+    clearRate:   (state) => { state.rate = { status: 'idle', data: null, error: null } },
   },
 })
 
@@ -80,3 +95,4 @@ export const selectQuizAnalytics = (s) => s.quiz.analytics
 export const selectQuizCreate  = (s) => s.quiz.create
 export const selectQuizDelete  = (s) => s.quiz.delete
 export const selectQuizPublish = (s) => s.quiz.publish
+export const selectQuizRate    = (s) => s.quiz.rate

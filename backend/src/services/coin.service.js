@@ -113,6 +113,18 @@ export const processGameRewards = async (roomCode, players, totalQuestions, quiz
     // 🏆 First Win
     if (isWinner && !hasBadge(BADGES.FIRST_WIN.id)) newBadges.push(BADGES.FIRST_WIN.id);
 
+    // 💪 Unstoppable (Win 3 in a row)
+    if (isWinner) {
+      user.winStreak += 1;
+      if (user.winStreak >= 3 && !hasBadge(BADGES.UNSTOPPABLE.id)) {
+        newBadges.push(BADGES.UNSTOPPABLE.id);
+      }
+    } else if (!p.isDisqualified) {
+      // Any completed game where you didn't win resets the win streak
+      // unless you were DQ'd (maybe DQ shouldn't reset? spec says "leaving mid-game = DQ", usually resets streak)
+      user.winStreak = 0;
+    }
+
     // 🔥 Hot Streak
     const maxStreak = calculateMaxStreak(p.answers);
     if (maxStreak >= 5 && !hasBadge(BADGES.HOT_STREAK.id)) newBadges.push(BADGES.HOT_STREAK.id);

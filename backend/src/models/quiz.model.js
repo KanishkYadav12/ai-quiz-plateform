@@ -41,9 +41,32 @@ const quizSchema = new mongoose.Schema(
     totalParticipants: { type: Number, default: 0 },
     totalScoreSum: { type: Number, default: 0 },
     highestScore: { type: Number, default: 0 },
+
+    // Rating (Section 11)
+    ratings: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        score: { type: Number, min: 1, max: 5 },
+      },
+    ],
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  },
 );
+
+quizSchema.virtual("ratingInfo").get(function () {
+  if (!this.ratings || this.ratings.length === 0) {
+    return { average: 0, count: 0 };
+  }
+  const total = this.ratings.reduce((sum, r) => sum + r.score, 0);
+  return {
+    average: total / this.ratings.length,
+    count: this.ratings.length,
+  };
+});
 
 // Index for fetching quizzes by owner efficiently
 quizSchema.index({ createdBy: 1, createdAt: -1 });

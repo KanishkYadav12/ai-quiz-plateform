@@ -1,7 +1,7 @@
 'use client'
 import { useEffect } from 'react'
 import Link from 'next/link'
-import { PlusCircle, BookOpen, Trash2, Play, Globe, Lock, Loader2, Brain, User, Target, BarChart3, TrendingUp, Sparkles, Trophy, Zap } from 'lucide-react'
+import { PlusCircle, BookOpen, Trash2, Play, Globe, Lock, Loader2, Brain, User, Target, BarChart3, TrendingUp, Sparkles, Trophy, Zap, Star } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import AuthGuard from '@/components/layout/AuthGuard'
 import FairPlayModal from '@/components/room/AgreementModal'
@@ -39,13 +39,22 @@ function PublicQuizCard({ quiz, onPlay }) {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-6 mt-auto">
+      <div className="grid grid-cols-2 gap-3 mb-4 mt-auto">
         <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)]">
           <Play size={12} className="text-[var(--accent-primary)]" /> {quiz.timesPlayed || 0}
         </div>
         <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)]">
           <Target size={12} className="text-[var(--success)]" /> {quiz.timesPlayed > 0 ? Math.round(quiz.totalScoreSum / quiz.timesPlayed) : 0}
         </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 mb-6">
+          <div className="flex items-center text-[var(--gold)]">
+             {[1,2,3,4,5].map(i => (
+                <Star key={i} size={12} fill={i <= Math.round(quiz.ratingInfo?.average || 0) ? "currentColor" : "none"} className={i <= Math.round(quiz.ratingInfo?.average || 0) ? "" : "text-[var(--border-strong)]"} />
+             ))}
+          </div>
+          <span className="text-[10px] font-black text-[var(--text-disabled)] uppercase tracking-widest">({quiz.ratingInfo?.count || 0})</span>
       </div>
 
       <button
@@ -262,7 +271,7 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-1 xl:grid-cols-4 gap-10">
             {/* Left Main Content */}
-            <div className="xl:col-span-3 space-y-12">
+            <div className="order-2 xl:order-1 xl:col-span-3 space-y-12">
 
               {/* Live Now Section */}
               <section>
@@ -341,7 +350,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Right Sidebar — Stats & Public Library */}
-            <div className="xl:col-span-1 space-y-10">
+            <div className="order-1 xl:order-2 xl:col-span-1 space-y-10">
               {/* Profile Stats */}
               <div className="card p-6 bg-[var(--accent-primary)] border-none relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
