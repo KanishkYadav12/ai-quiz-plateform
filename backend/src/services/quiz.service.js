@@ -1,5 +1,5 @@
 import { Quiz } from "../models/quiz.model.js";
-import { generateQuestionsFromAI } from "../config/gemini.config.js";
+import { generateQuestionsFromAI } from "../config/groq.config.js";
 import { NotFoundException, ForbiddenException } from "../utils/exceptions.js";
 
 export const createQuizWithAI = async (payload, userId) => {

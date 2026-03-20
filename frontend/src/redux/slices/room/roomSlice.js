@@ -75,9 +75,16 @@ const roomSlice = createSlice({
     // ── live game state (socket-driven) ───────────────────
     setRoomJoined: (state, { payload }) => {
       state.game.roomCode = payload.room.roomCode;
-      state.game.status = "waiting";
+      state.game.status = payload.room.status;
       state.game.players = payload.players;
       state.game.hostId = payload.room.hostId;
+
+      if (payload.room.status === "active") {
+        state.game.currentQuestion = payload.currentQuestion;
+        state.game.questionIndex = payload.room.currentQuestionIndex;
+        state.game.totalQuestions = payload.room.totalQuestions;
+        state.game.timePerQuestion = payload.room.timePerQuestion;
+      }
     },
     playerJoined: (state, { payload }) => {
       const exists = state.game.players.find(

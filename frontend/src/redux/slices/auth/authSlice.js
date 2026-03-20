@@ -52,14 +52,14 @@ const authSlice = createSlice({
 
     // ── session ───────────────────────────────────────────
     logout: (state) => {
-      state.user            = null
-      state.token           = null
-      state.isAuthenticated = false
-      state.login           = op()
-      state.register        = op()
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
+      state.user = null;
+      state.token = null;
+      state.isAuthenticated = false;
+      state.login = op();
+      state.register = op();
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
       }
     },
     setCredentials: (state, { payload }) => {

@@ -42,6 +42,10 @@ const sendQuestion = (io, roomCode) => {
   const { questions, timePerQuestion } = state.quiz;
   const question = questions[state.currentQuestionIndex];
 
+  if (!question) {
+    return endGame(io, roomCode);
+  }
+
   io.to(roomCode).emit("question_update", {
     question: sanitiseQuestion(question),
     questionIndex: state.currentQuestionIndex,
@@ -49,14 +53,29 @@ const sendQuestion = (io, roomCode) => {
   });
 
   // Server-side auto-advance timer
+  if (state.questionTimeout) clearTimeout(state.questionTimeout);
   state.questionTimeout = setTimeout(() => {
-    advanceQuestion(io, roomCode);
+    advanceQuestion(io, roomCode, state.currentQuestionIndex);
   }, timePerQuestion * 1000);
 };
 
-const advanceQuestion = (io, roomCode) => {
+const advanceQuestion = (io, roomCode, expectedIndex) => {
   const state = getRoomState(roomCode);
-  if (!state) return;
+  if (!state || state.status !== "active") return;
+
+  // Prevent duplicate advances for the same question
+  if (
+    expectedIndex !== undefined &&
+    state.currentQuestionIndex !== expectedIndex
+  ) {
+    return;
+  }
+
+  // Clear any existing timer to prevent double-advancing
+  if (state.questionTimeout) {
+    clearTimeout(state.questionTimeout);
+    state.questionTimeout = null;
+  }
 
   state.currentQuestionIndex += 1;
 
@@ -99,7 +118,7 @@ const checkAllAnswered = (io, roomCode, questionIndex) => {
     p.answers.some((a) => a.questionIndex === questionIndex),
   ).length;
 
-  if (answeredCount === connectedPlayers.length) {
+  if (answeredCount === connectedPlayers.length && connectedPlayers.length > 0) {
     // Everyone answered — clear the timer and advance after short delay
     // so players can see their result feedback before next question
     if (state.questionTimeout) {
@@ -108,7 +127,7 @@ const checkAllAnswered = (io, roomCode, questionIndex) => {
     }
 
     setTimeout(() => {
-      advanceQuestion(io, roomCode);
+      advanceQuestion(io, roomCode, questionIndex);
     }, 1500);
   }
 };
@@ -152,8 +171,19 @@ export const registerSocketHandlers = (io) => {
 
         // Send current room state to the joining player
         socket.emit("room_joined", {
-          room: { roomCode, status: state.status, hostId: state.hostId },
+          room: {
+            roomCode,
+            status: state.status,
+            hostId: state.hostId,
+            currentQuestionIndex: state.currentQuestionIndex,
+            totalQuestions: state.quiz.questions.length,
+            timePerQuestion: state.quiz.timePerQuestion,
+          },
           players: getAllPlayers(roomCode).map(publicPlayer),
+          currentQuestion:
+            state.status === "active"
+              ? sanitiseQuestion(state.quiz.questions[state.currentQuestionIndex])
+              : null,
         });
       } catch (err) {
         console.error("[Socket] join_room error:", err.message);
@@ -195,7 +225,7 @@ export const registerSocketHandlers = (io) => {
 
       // Start the first question timer
       state.questionTimeout = setTimeout(() => {
-        advanceQuestion(io, roomCode);
+        advanceQuestion(io, roomCode, 0);
       }, state.quiz.timePerQuestion * 1000);
     });
 

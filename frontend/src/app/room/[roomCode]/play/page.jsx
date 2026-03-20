@@ -63,7 +63,7 @@ export default function GamePlayPage() {
     setAnswered(false);
     setTimeLeft(game.timePerQuestion || 30);
     setStartTime(Date.now());
-  }, [game.currentQuestion]);
+  }, [game.currentQuestion, game.questionIndex]);
 
   const joined = useRef(false);
 
@@ -80,8 +80,8 @@ export default function GamePlayPage() {
       setAnswered(true);
       return;
     }
-    const t = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
-    return () => clearTimeout(t);
+    const t = setInterval(() => setTimeLeft((t) => (t > 0 ? t - 1 : 0)), 1000);
+    return () => clearInterval(t);
   }, [timeLeft, answered]);
 
   // Navigate to results when game over
