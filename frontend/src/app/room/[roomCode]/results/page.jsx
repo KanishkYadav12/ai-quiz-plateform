@@ -2,7 +2,7 @@
 import { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useDispatch, useSelector } from 'react-redux'
-import { Trophy, Medal, Home, Crown, BarChart3, Users, Target, ArrowRight, Share2 } from 'lucide-react'
+import { Trophy, Medal, Home, Crown, BarChart3, Users, Target, ArrowRight, Share2, Sparkles, Zap, ShieldAlert } from 'lucide-react'
 import Link from 'next/link'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import AuthGuard from '@/components/layout/AuthGuard'
@@ -24,6 +24,7 @@ export default function ResultsPage() {
   const winner      = game.finalResult?.winner || leaderboard[0]
   const myRank      = leaderboard.findIndex(p => p.userId === currentUser?._id) + 1
   const myScore     = leaderboard.find(p => p.userId === currentUser?._id)?.score || 0
+  const myRewards   = game.finalResult?.rewards?.[currentUser?._id];
   const isWinner    = winner?.userId === currentUser?._id
 
   const handleLeave = () => {
@@ -188,6 +189,53 @@ export default function ResultsPage() {
               ))}
             </div>
           </div>
+
+          {/* Rewards Section */}
+          {myRewards && (
+            <div className="card p-8 bg-[var(--accent-muted)] border-[var(--accent-primary)] border-2 mb-12 relative overflow-hidden">
+               <div className="absolute top-0 right-0 p-4 opacity-10">
+                  <Sparkles size={100} className="text-[var(--accent-primary)]" />
+               </div>
+
+               <h2 className="text-xl font-black text-[var(--accent-primary)] uppercase tracking-widest mb-6 flex items-center gap-2">
+                 <Zap size={20} fill="currentColor" /> Earnings This Game
+               </h2>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-[var(--bg-primary)] rounded-2xl border border-[var(--border)]">
+                       <span className="font-bold text-[var(--text-secondary)]">Placement Coins ({RANK_LABELS[myRank-1] || `${myRank}th`})</span>
+                       <span className="font-black text-xl text-[var(--text-primary)]">+{myRewards.placement}</span>
+                    </div>
+                    {myRewards.bonuses?.map((bonus, i) => (
+                      <div key={i} className="flex items-center justify-between p-4 bg-[var(--bg-primary)] rounded-2xl border border-[var(--success)]/20">
+                         <span className="font-bold text-[var(--success)] flex items-center gap-2">
+                           <Sparkles size={14} /> {bonus.name}
+                         </span>
+                         <span className="font-black text-lg text-[var(--success)]">+{bonus.amount}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center bg-[var(--bg-primary)] rounded-3xl p-6 border-2 border-[var(--accent-primary)]">
+                     <p className="text-[10px] font-black uppercase text-[var(--text-disabled)] mb-1">Total Coins Earned</p>
+                     <div className="text-5xl font-black text-[var(--accent-primary)] mono mb-4">
+                        +{myRewards.total}
+                     </div>
+                     {myRewards.newBadges?.length > 0 && (
+                       <div className="flex flex-wrap justify-center gap-2 mt-2">
+                          {myRewards.newBadges.map((badge) => (
+                            <div key={badge.id} className="flex items-center gap-1.5 px-3 py-1 bg-[var(--gold)]/10 text-[var(--gold)] rounded-full border border-[var(--gold)]/20 animate-bounce">
+                               <span className="text-sm">{badge.icon}</span>
+                               <span className="text-[10px] font-black uppercase tracking-tighter">{badge.name}</span>
+                            </div>
+                          ))}
+                       </div>
+                     )}
+                  </div>
+               </div>
+            </div>
+          )}
 
           {/* Action Footer */}
           <div className="flex flex-col sm:flex-row gap-4">

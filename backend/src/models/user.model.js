@@ -5,11 +5,22 @@ const userSchema = new mongoose.Schema(
   {
     name:           { type: String, required: true, trim: true },
     email:          { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password:       { type: String, required: true, select: false },
-    profilePicture: { type: String, default: '' },
+    password: { type: String, required: true, select: false },
+    profilePicture: { type: String, default: "" },
+
+    // Stats
+    totalCoins: { type: Number, default: 0 },
+    gamesPlayed: { type: Number, default: 0 },
+    gamesWon: { type: Number, default: 0 },
+    coinRatio: { type: Number, default: 0 },
+    totalScore: { type: Number, default: 0 },
+    bestScore: { type: Number, default: 0 },
+
+    // Badges
+    badges: { type: [String], default: [] },
   },
-  { timestamps: true }
-)
+  { timestamps: true },
+);
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {

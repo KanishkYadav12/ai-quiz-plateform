@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Brain, LayoutDashboard, PlusCircle, LogOut, Zap } from 'lucide-react'
+import { Brain, LayoutDashboard, PlusCircle, LogOut, Zap, Trophy } from 'lucide-react'
 import { useAuth } from '@/hooks/auth/useAuth'
 import ThemeToggle from '@/components/ui/ThemeToggle'
 
@@ -13,6 +13,7 @@ export default function Navbar() {
     { href: '/dashboard',   label: 'Dashboard',    icon: LayoutDashboard },
     { href: '/quiz/create', label: 'Create Quiz',  icon: PlusCircle },
     { href: '/room/join',   label: 'Join Room',    icon: Zap },
+    { href: '/leaderboard', label: 'Leaderboard',  icon: Trophy },
   ]
 
   return (

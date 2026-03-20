@@ -14,6 +14,7 @@ import {
   getRoomByCode,
   saveFinalScoresToRoom,
 } from "../services/room.service.js";
+import { processGameRewards } from "../services/coin.service.js";
 import { Quiz } from "../models/quiz.model.js";
 import { calculateScore } from "../utils/scoring.util.js";
 
@@ -97,7 +98,24 @@ const endGame = async (io, roomCode) => {
   const finalLeaderboard = getLeaderboard(roomCode);
   const winner = finalLeaderboard[0] ?? null;
 
-  io.to(roomCode).emit("game_over", { finalLeaderboard, winner });
+  // Process Coins and Badges
+  let rewards = {};
+  try {
+    rewards = await processGameRewards(
+      roomCode,
+      players,
+      state.quiz.questions.length,
+      state.quiz._id,
+    );
+  } catch (err) {
+    console.error("[Socket] Failed to process rewards:", err.message);
+  }
+
+  io.to(roomCode).emit("game_over", {
+    finalLeaderboard,
+    winner,
+    rewards,
+  });
 
   // Persist final scores to MongoDB
   try {

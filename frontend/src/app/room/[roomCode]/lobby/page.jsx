@@ -53,7 +53,7 @@ export default function LobbyPage() {
   const isActualHost = game.hostId === currentUser?._id;
   const nonHostPlayers = game.players.filter((p) => p.userId !== game.hostId);
   const allReady =
-    game.players.length > 1 && nonHostPlayers.every((p) => p.isReady);
+    nonHostPlayers.length === 0 || nonHostPlayers.every((p) => p.isReady);
 
   const handleReady = () => {
     markReady(roomCode, currentUser._id, !myPlayer?.isReady);

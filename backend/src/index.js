@@ -12,6 +12,8 @@ import { errorHandler } from "./middleware/error.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
 import quizRoutes from "./routes/quiz.routes.js";
 import roomRoutes from "./routes/room.routes.js";
+import leaderboardRoutes from "./routes/leaderboard.routes.js";
+import userRoutes from "./routes/user.routes.js";
 import { registerSocketHandlers } from "./socket/socket.handler.js";
 
 const PORT = getEnv("PORT", "8000");
@@ -43,6 +45,8 @@ app.get("/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/quiz", quizRoutes);
 app.use("/api/room", roomRoutes);
+app.use("/api/leaderboard", leaderboardRoutes);
+app.use("/api/user", userRoutes);
 
 // ── 404 handler ────────────────────────────────────────────────
 app.use((_req, res) => {
