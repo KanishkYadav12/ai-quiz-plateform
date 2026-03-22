@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,7 +14,6 @@ import {
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import AuthGuard from "@/components/layout/AuthGuard";
-import FairPlayModal from "@/components/room/AgreementModal";
 
 const schema = z.object({
   roomCode: z.string().length(6, "Code must be exactly 6 digits"),
@@ -23,7 +22,6 @@ const schema = z.object({
 export default function JoinRoomPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [agreementModal, setAgreementModal] = useState({ isOpen: false, targetRoom: null });
 
   const {
     register,
@@ -34,42 +32,25 @@ export default function JoinRoomPage() {
   });
 
   const onSubmit = (values) => {
-    const hasAgreed = sessionStorage.getItem("fairPlayAgreed");
-    if (hasAgreed) {
-      setLoading(true);
-      router.push(`/room/${values.roomCode}/lobby`);
-    } else {
-      setAgreementModal({ isOpen: true, targetRoom: values.roomCode });
-    }
-  };
-
-  const confirmAgreement = () => {
-    sessionStorage.setItem("fairPlayAgreed", "true");
-    const roomCode = agreementModal.targetRoom;
-    setAgreementModal({ isOpen: false, targetRoom: null });
-    if (roomCode) {
-      setLoading(true);
-      router.push(`/room/${roomCode}/lobby`);
-    }
+    setLoading(true);
+    router.push(`/room/${values.roomCode}/lobby`);
   };
 
   return (
     <AuthGuard>
-      <FairPlayModal
-        isOpen={agreementModal.isOpen}
-        onConfirm={confirmAgreement}
-        onCancel={() => setAgreementModal({ isOpen: false, targetRoom: null })}
-      />
       <div className="min-h-screen bg-[var(--bg-primary)] page-enter">
         <Navbar />
         <main className="max-w-xl px-6 py-20 mx-auto">
-
           <div className="text-center mb-12">
-             <div className="w-20 h-20 rounded-3xl bg-[var(--accent-muted)] text-[var(--accent-primary)] flex items-center justify-center mx-auto mb-6 shadow-sm">
-                <Zap size={40} fill="currentColor" />
-             </div>
-             <h1 className="text-4xl font-black text-[var(--text-primary)] font-display tracking-tight mb-3">Join Competition</h1>
-             <p className="text-[var(--text-secondary)] font-medium">Enter the 6-digit code to enter the lobby</p>
+            <div className="w-20 h-20 rounded-3xl bg-[var(--accent-muted)] text-[var(--accent-primary)] flex items-center justify-center mx-auto mb-6 shadow-sm">
+              <Zap size={40} fill="currentColor" />
+            </div>
+            <h1 className="text-4xl font-black text-[var(--text-primary)] font-display tracking-tight mb-3">
+              Join Competition
+            </h1>
+            <p className="text-[var(--text-secondary)] font-medium">
+              Enter the 6-digit code to enter the lobby
+            </p>
           </div>
 
           <div className="card p-10 bg-[var(--bg-secondary)] border-[var(--border)] shadow-2xl relative overflow-hidden">
@@ -111,19 +92,29 @@ export default function JoinRoomPage() {
             </form>
 
             <div className="mt-10 pt-8 border-t border-[var(--border)] grid grid-cols-2 gap-4">
-               <div className="flex flex-col items-center text-center gap-2">
-                  <ShieldCheck size={20} className="text-[var(--success)]" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-disabled)]">Fair Play Active</span>
-               </div>
-               <div className="flex flex-col items-center text-center gap-2">
-                  <Zap size={20} className="text-[var(--gold)]" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-disabled)]">Real-time Sync</span>
-               </div>
+              <div className="flex flex-col items-center text-center gap-2">
+                <ShieldCheck size={20} className="text-[var(--success)]" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-disabled)]">
+                  Direct Join
+                </span>
+              </div>
+              <div className="flex flex-col items-center text-center gap-2">
+                <Zap size={20} className="text-[var(--gold)]" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-disabled)]">
+                  Real-time Sync
+                </span>
+              </div>
             </div>
           </div>
 
           <p className="text-center mt-12 text-[var(--text-disabled)] text-sm font-medium">
-            Waiting for a host? <button onClick={() => router.push('/dashboard')} className="text-[var(--accent-primary)] font-bold hover:underline">Browse Public Rooms</button>
+            Waiting for a host?{" "}
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="text-[var(--accent-primary)] font-bold hover:underline"
+            >
+              Browse Public Rooms
+            </button>
           </p>
         </main>
       </div>

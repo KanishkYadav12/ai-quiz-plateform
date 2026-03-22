@@ -18,6 +18,14 @@ const initialState = {
     timePerQuestion: 30,
     leaderboard: [],
     answerResult: null,
+    waitingForOthers: false,
+    finishedPlayers: [],
+    playerProgress: {
+      currentQuestionIndex: 0,
+      finished: false,
+      finishedAt: null,
+    },
+    allPlayersFinished: false,
     finalResult: null,
   },
 };
@@ -113,10 +121,28 @@ const roomSlice = createSlice({
       state.game.players = payload.players;
       state.game.hostId = payload.room.hostId;
       state.game.quizId = payload.room.quizId;
+      state.game.leaderboard = payload.leaderboard || [];
+      state.game.playerProgress =
+        payload.playerProgress || state.game.playerProgress;
+      state.game.waitingForOthers = Boolean(payload.playerProgress?.finished);
+      state.game.finishedPlayers = (payload.players || [])
+        .filter((p) => p.finished)
+        .map((p) => ({
+          userId: p.userId,
+          name: p.name,
+          score: p.score,
+          finishedAt: p.finishedAt,
+        }));
+      state.game.allPlayersFinished = payload.room.status === "completed";
+      if (payload.room.status !== "completed") {
+        state.game.finalResult = null;
+      }
 
       if (payload.room.status === "active") {
         state.game.currentQuestion = payload.currentQuestion;
-        state.game.questionIndex = payload.room.currentQuestionIndex;
+        state.game.questionIndex =
+          payload.playerProgress?.currentQuestionIndex ??
+          payload.room.currentQuestionIndex;
         state.game.totalQuestions = payload.room.totalQuestions;
         state.game.timePerQuestion = payload.room.timePerQuestion;
       }
@@ -138,16 +164,30 @@ const roomSlice = createSlice({
     },
     gameStarted: (state, { payload }) => {
       state.game.status = "active";
-      state.game.currentQuestion = payload.firstQuestion;
+      state.game.currentQuestion = null;
       state.game.questionIndex = 0;
       state.game.totalQuestions = payload.totalQuestions;
       state.game.timePerQuestion = payload.timePerQuestion;
       state.game.answerResult = null;
+      state.game.waitingForOthers = false;
+      state.game.finishedPlayers = [];
+      state.game.playerProgress = {
+        currentQuestionIndex: 0,
+        finished: false,
+        finishedAt: null,
+      };
+      state.game.allPlayersFinished = false;
     },
     questionUpdated: (state, { payload }) => {
       state.game.currentQuestion = payload.question;
       state.game.questionIndex = payload.questionIndex;
+      state.game.timePerQuestion =
+        payload.timeLimit || state.game.timePerQuestion;
       state.game.answerResult = null;
+      state.game.waitingForOthers = false;
+      state.game.playerProgress.currentQuestionIndex = payload.questionIndex;
+      state.game.playerProgress.finished = false;
+      state.game.playerProgress.finishedAt = null;
     },
     answerResultReceived: (state, { payload }) => {
       state.game.answerResult = payload;
@@ -155,10 +195,39 @@ const roomSlice = createSlice({
     leaderboardUpdated: (state, { payload }) => {
       state.game.leaderboard = payload.leaderboard;
     },
+    playerFinished: (state, { payload }) => {
+      const exists = state.game.finishedPlayers.find(
+        (p) => p.userId === payload.userId,
+      );
+      if (!exists) {
+        state.game.finishedPlayers.push(payload);
+      }
+
+      const player = state.game.players.find(
+        (p) => p.userId === payload.userId,
+      );
+      if (player) {
+        player.finished = true;
+        player.finishedAt = payload.finishedAt;
+        player.score = payload.score;
+      }
+    },
+    setCurrentPlayerProgress: (state, { payload }) => {
+      state.game.playerProgress = {
+        ...state.game.playerProgress,
+        ...payload,
+      };
+      state.game.waitingForOthers = Boolean(state.game.playerProgress.finished);
+    },
     gameOver: (state, { payload }) => {
       state.game.status = "completed";
       state.game.finalResult = payload;
       state.game.leaderboard = payload.finalLeaderboard;
+      state.game.allPlayersFinished = true;
+      state.game.waitingForOthers = false;
+    },
+    allPlayersFinished: (state) => {
+      state.game.allPlayersFinished = true;
     },
     playerDisqualified: (state, { payload }) => {
       const p = state.game.players.find((p) => p.userId === payload.userId);
@@ -168,7 +237,9 @@ const roomSlice = createSlice({
         p.score = 0;
       }
       // Update leaderboard if player is there
-      const lp = state.game.leaderboard.find((p) => p.userId === payload.userId);
+      const lp = state.game.leaderboard.find(
+        (p) => p.userId === payload.userId,
+      );
       if (lp) lp.score = 0;
     },
     resetGame: (state) => {

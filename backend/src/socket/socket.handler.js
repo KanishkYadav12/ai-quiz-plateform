@@ -9,6 +9,17 @@ import {
   recordAnswer,
   getLeaderboard,
   getAllPlayers,
+  setPlayerQuestionTimer,
+  clearPlayerQuestionTimer,
+  clearAllPlayerQuestionTimers,
+  markPlayerQuestionStarted,
+  hasPlayerAnsweredQuestion,
+  setPlayerCurrentQuestionIndex,
+  markPlayerFinished,
+  areAllPlayersFinished,
+  markGameOverSent,
+  setPlayerDisconnectTimeout,
+  clearPlayerDisconnectTimeout,
 } from "./room.state.js";
 import {
   getRoomByCode,
@@ -18,15 +29,14 @@ import { processGameRewards } from "../services/coin.service.js";
 import { Quiz } from "../models/quiz.model.js";
 import { calculateScore } from "../utils/scoring.util.js";
 
-// ── Helpers ────────────────────────────────────────────────────
+const QUESTION_FEEDBACK_DELAY_MS = 1500;
+const DISCONNECT_GRACE_MS = 12000;
 
-/** Strip the correctAnswer before sending to clients */
 const sanitiseQuestion = (question) => ({
   questionText: question.questionText,
   options: question.options,
 });
 
-/** Public player shape sent over the wire */
 const publicPlayer = (p) => ({
   userId: p.userId,
   name: p.name,
@@ -35,70 +45,298 @@ const publicPlayer = (p) => ({
   isConnected: p.isConnected,
   isDisqualified: p.isDisqualified,
   disqualifyReason: p.disqualifyReason,
+  currentQuestionIndex: p.currentQuestionIndex,
+  finished: p.finished,
+  finishedAt: p.finishedAt,
 });
 
-// ── Game flow ──────────────────────────────────────────────────
-
-const sendQuestion = (io, roomCode) => {
-  const state = getRoomState(roomCode);
-  if (!state) return;
-
-  const { questions, timePerQuestion } = state.quiz;
-  const question = questions[state.currentQuestionIndex];
-
-  if (!question) {
-    return endGame(io, roomCode);
-  }
-
-  io.to(roomCode).emit("question_update", {
-    question: sanitiseQuestion(question),
-    questionIndex: state.currentQuestionIndex,
-    timeLimit: timePerQuestion,
+const emitLeaderboard = (io, roomCode) => {
+  io.to(roomCode).emit("leaderboard_update", {
+    leaderboard: getLeaderboard(roomCode),
   });
-
-  // Server-side auto-advance timer
-  if (state.questionTimeout) clearTimeout(state.questionTimeout);
-  state.questionTimeout = setTimeout(() => {
-    advanceQuestion(io, roomCode, state.currentQuestionIndex);
-  }, timePerQuestion * 1000);
 };
 
-const advanceQuestion = (io, roomCode, expectedIndex) => {
+const findPlayerById = (state, userId) =>
+  state.players.get(userId?.toString()) ?? null;
+
+const emitQuestionToPlayer = (io, roomCode, userId) => {
   const state = getRoomState(roomCode);
   if (!state || state.status !== "active") return;
 
-  // Prevent duplicate advances for the same question
-  if (
-    expectedIndex !== undefined &&
-    state.currentQuestionIndex !== expectedIndex
-  ) {
+  const player = findPlayerById(state, userId);
+  if (!player || player.finished || player.isDisqualified) return;
+
+  const idx = player.currentQuestionIndex;
+  const question = state.quiz.questions[idx];
+  if (!question) return;
+
+  markPlayerQuestionStarted(roomCode, userId, Date.now());
+
+  if (player.socketId) {
+    io.to(player.socketId).emit("question_update", {
+      question: sanitiseQuestion(question),
+      questionIndex: idx,
+      timeLimit: state.quiz.timePerQuestion,
+    });
+  }
+
+  clearPlayerQuestionTimer(roomCode, userId, idx);
+  const timer = setTimeout(() => {
+    handleQuestionTimeout(io, roomCode, userId, idx);
+  }, state.quiz.timePerQuestion * 1000);
+
+  setPlayerQuestionTimer(roomCode, userId, idx, timer);
+};
+
+const maybeEndGame = async (io, roomCode) => {
+  if (!areAllPlayersFinished(roomCode)) return;
+  await endGame(io, roomCode);
+};
+
+const notifyPlayerFinished = (io, roomCode, player) => {
+  const payload = {
+    userId: player.userId,
+    name: player.name,
+    score: player.isDisqualified ? 0 : player.score,
+    finishedAt: player.finishedAt,
+  };
+
+  if (player.socketId) {
+    io.to(player.socketId).emit("player_finished", payload);
+  }
+  io.to(roomCode).emit("player_finished", payload);
+};
+
+const advancePlayer = async (
+  io,
+  roomCode,
+  userId,
+  delayMs = QUESTION_FEEDBACK_DELAY_MS,
+) => {
+  const state = getRoomState(roomCode);
+  if (!state || state.status !== "active") return;
+
+  const player = findPlayerById(state, userId);
+  if (!player || player.finished) return;
+
+  const next = player.currentQuestionIndex + 1;
+  if (next >= state.quiz.questions.length) {
+    clearAllPlayerQuestionTimers(roomCode, userId);
+    markPlayerFinished(roomCode, userId, Date.now());
+    notifyPlayerFinished(io, roomCode, player);
+    await maybeEndGame(io, roomCode);
     return;
   }
 
-  // Clear any existing timer to prevent double-advancing
-  if (state.questionTimeout) {
-    clearTimeout(state.questionTimeout);
-    state.questionTimeout = null;
+  setPlayerCurrentQuestionIndex(roomCode, userId, next);
+  setTimeout(() => emitQuestionToPlayer(io, roomCode, userId), delayMs);
+};
+
+const handleQuestionTimeout = async (
+  io,
+  roomCode,
+  userId,
+  expectedQuestionIndex,
+) => {
+  const state = getRoomState(roomCode);
+  if (!state || state.status !== "active") return;
+
+  const player = findPlayerById(state, userId);
+  if (!player || player.finished || player.isDisqualified) return;
+
+  if (player.currentQuestionIndex !== expectedQuestionIndex) return;
+  if (hasPlayerAnsweredQuestion(roomCode, userId, expectedQuestionIndex))
+    return;
+
+  const question = state.quiz.questions[expectedQuestionIndex];
+  if (!question) return;
+
+  clearPlayerQuestionTimer(roomCode, userId, expectedQuestionIndex);
+
+  const timedOutSeconds = state.quiz.timePerQuestion;
+  const updatedPlayer = recordAnswer(
+    roomCode,
+    userId,
+    {
+      questionIndex: expectedQuestionIndex,
+      selectedAnswer: null,
+      isCorrect: false,
+      timeTaken: timedOutSeconds,
+      autoSubmitted: true,
+      timedOut: true,
+    },
+    0,
+  );
+
+  if (!updatedPlayer) return;
+
+  if (player.socketId) {
+    io.to(player.socketId).emit("answer_result", {
+      isCorrect: false,
+      correctAnswer: question.correctAnswer,
+      pointsEarned: 0,
+      currentScore: updatedPlayer.score,
+      questionIndex: expectedQuestionIndex,
+      timedOut: true,
+    });
   }
 
-  state.currentQuestionIndex += 1;
+  emitLeaderboard(io, roomCode);
+  await advancePlayer(io, roomCode, userId, 0);
+};
 
-  if (state.currentQuestionIndex >= state.quiz.questions.length) {
-    endGame(io, roomCode);
-  } else {
-    sendQuestion(io, roomCode);
+const disqualifyPlayer = async (io, roomCode, userId, reason) => {
+  const state = getRoomState(roomCode);
+  if (!state) return;
+
+  const player = findPlayerById(state, userId);
+  if (!player || player.isDisqualified) return;
+
+  player.isDisqualified = true;
+  player.disqualifyReason = reason;
+  player.score = 0;
+
+  clearAllPlayerQuestionTimers(roomCode, userId);
+
+  if (!player.finished) {
+    markPlayerFinished(roomCode, userId, Date.now());
   }
+
+  io.to(roomCode).emit("player_disqualified", {
+    userId,
+    name: player.name,
+    reason,
+  });
+
+  notifyPlayerFinished(io, roomCode, player);
+  emitLeaderboard(io, roomCode);
+  await maybeEndGame(io, roomCode);
+};
+
+const buildQuizAnalytics = (state, players) => {
+  const totalQuestions = state.quiz.questions.length;
+  const questionStats = state.quiz.questions.map((_q, questionIndex) => {
+    const answers = players
+      .map((p) => p.answers.find((a) => a.questionIndex === questionIndex))
+      .filter(Boolean);
+
+    const totalAnswered = answers.length;
+    const correctCount = answers.filter((a) => a.isCorrect).length;
+    const correctRate =
+      totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
+
+    const times = answers.map((a) => a.timeTaken);
+    const fastestTime = times.length > 0 ? Math.min(...times) : null;
+    const averageTime =
+      times.length > 0
+        ? Number((times.reduce((s, t) => s + t, 0) / times.length).toFixed(2))
+        : null;
+
+    return {
+      questionIndex,
+      correctCount,
+      totalAnswered,
+      correctRate,
+      fastestTime,
+      averageTime,
+    };
+  });
+
+  return {
+    totalQuestions,
+    questionStats,
+  };
+};
+
+const calculateLongestStreak = (answers) => {
+  let current = 0;
+  let best = 0;
+  for (const a of answers) {
+    if (a.isCorrect) {
+      current += 1;
+      if (current > best) best = current;
+    } else {
+      current = 0;
+    }
+  }
+  return best;
+};
+
+const buildPlayerStats = (state, players, rewards) => {
+  const stats = {};
+
+  for (const p of players) {
+    const userId = p.userId.toString();
+    const answers = [...p.answers].sort(
+      (a, b) => a.questionIndex - b.questionIndex,
+    );
+    const correct = answers.filter((a) => a.isCorrect).length;
+    const wrong = answers.length - correct;
+    const times = answers.map((a) => a.timeTaken);
+
+    const avgTime = times.length
+      ? Number((times.reduce((s, t) => s + t, 0) / times.length).toFixed(2))
+      : 0;
+    const fastestTime = times.length ? Math.min(...times) : 0;
+    const slowestTime = times.length ? Math.max(...times) : 0;
+    const longestStreak = calculateLongestStreak(answers);
+
+    const detailedAnswers = answers.map((a) => {
+      const question = state.quiz.questions[a.questionIndex];
+      return {
+        questionIndex: a.questionIndex,
+        questionText: question?.questionText ?? "",
+        selectedAnswer: a.selectedAnswer,
+        correctAnswer: question?.correctAnswer,
+        isCorrect: a.isCorrect,
+        pointsEarned: a.pointsEarned,
+        timeTaken: a.timeTaken,
+      };
+    });
+
+    const reward = rewards[userId] || {
+      total: 0,
+      placement: 0,
+      bonuses: [],
+      newBadges: [],
+    };
+
+    stats[userId] = {
+      score: p.isDisqualified ? 0 : p.score,
+      correct,
+      wrong,
+      avgTime,
+      fastestTime,
+      slowestTime,
+      longestStreak,
+      answers: detailedAnswers,
+      coinsEarned: reward.total || 0,
+      bonusBreakdown: {
+        placement: reward.placement || 0,
+        bonuses: reward.bonuses || [],
+      },
+      badgesEarned: reward.newBadges || [],
+      finished: p.finished,
+      finishedAt: p.finishedAt,
+      isDisqualified: p.isDisqualified,
+      disqualifyReason: p.disqualifyReason,
+    };
+  }
+
+  return stats;
 };
 
 const endGame = async (io, roomCode) => {
   const state = getRoomState(roomCode);
   if (!state) return;
 
+  const firstFinishGuard = markGameOverSent(roomCode);
+  if (!firstFinishGuard) return;
+
   const players = getAllPlayers(roomCode);
   const finalLeaderboard = getLeaderboard(roomCode);
   const winner = finalLeaderboard[0] ?? null;
 
-  // Process Coins and Badges
   let rewards = {};
   try {
     rewards = await processGameRewards(
@@ -111,18 +349,29 @@ const endGame = async (io, roomCode) => {
     console.error("[Socket] Failed to process rewards:", err.message);
   }
 
+  const quizAnalytics = buildQuizAnalytics(state, players);
+  const playerStats = buildPlayerStats(state, players, rewards);
+  const coinsAwarded = Object.fromEntries(
+    Object.entries(rewards).map(([userId, reward]) => [
+      userId,
+      reward.total || 0,
+    ]),
+  );
+
   io.to(roomCode).emit("game_over", {
     finalLeaderboard,
     winner,
     rewards,
     quizId: state.quiz._id,
+    quizAnalytics,
+    playerStats,
+    coinsAwarded,
+    allPlayersFinished: true,
   });
 
-  // Persist final scores to MongoDB
   try {
     await saveFinalScoresToRoom(roomCode, players);
 
-    // Update Quiz Analytics
     const quiz = await Quiz.findById(state.quiz._id);
     if (quiz) {
       quiz.timesPlayed += 1;
@@ -133,77 +382,24 @@ const endGame = async (io, roomCode) => {
       await quiz.save();
     }
   } catch (err) {
-    console.error("[Socket] Failed to save final scores / update analytics:", err.message);
+    console.error(
+      "[Socket] Failed to save final scores / update analytics:",
+      err.message,
+    );
   }
 
   deleteRoomState(roomCode);
   io.emit("room_status_update", { roomCode, status: "completed" });
 };
 
-// ── Disqualification ───────────────────────────────────────────
-
-const disqualifyPlayer = (io, roomCode, userId, reason) => {
-  const state = getRoomState(roomCode);
-  if (!state) return;
-
-  const player = state.players.get(userId.toString());
-  if (!player || player.isDisqualified) return;
-
-  player.isDisqualified = true;
-  player.disqualifyReason = reason;
-  player.score = 0;
-
-  io.to(roomCode).emit("player_disqualified", {
-    userId,
-    name: player.name,
-    reason,
-  });
-
-  io.to(roomCode).emit("leaderboard_update", {
-    leaderboard: getLeaderboard(roomCode),
-  });
-};
-
-// ── Check if all connected players have answered ───────────────
-
-const checkAllAnswered = (io, roomCode, questionIndex) => {
-  const state = getRoomState(roomCode);
-  if (!state) return;
-
-  const allPlayers = getAllPlayers(roomCode);
-  const connectedPlayers = allPlayers.filter((p) => p.isConnected);
-
-  const answeredCount = connectedPlayers.filter((p) =>
-    p.answers.some((a) => a.questionIndex === questionIndex),
-  ).length;
-
-  if (answeredCount === connectedPlayers.length && connectedPlayers.length > 0) {
-    // Everyone answered — clear the timer and advance after short delay
-    // so players can see their result feedback before next question
-    if (state.questionTimeout) {
-      clearTimeout(state.questionTimeout);
-      state.questionTimeout = null;
-    }
-
-    setTimeout(() => {
-      advanceQuestion(io, roomCode, questionIndex);
-    }, 1500);
-  }
-};
-
-// ── Main handler ───────────────────────────────────────────────
-
 export const registerSocketHandlers = (io) => {
   io.on("connection", (socket) => {
-    // Join a global dashboard room to receive live room updates
     socket.on("join_dashboard", () => {
       socket.join("dashboard");
     });
 
-    // ── join_room ────────────────────────────────────────────
     socket.on("join_room", async ({ roomCode, userId, userName }) => {
       try {
-        // Load room + quiz from DB
         const roomDoc = await getRoomByCode(roomCode);
         if (!roomDoc) {
           socket.emit("error", { message: "Room not found." });
@@ -212,10 +408,9 @@ export const registerSocketHandlers = (io) => {
 
         const isHost = roomDoc.hostId._id.toString() === userId?.toString();
 
-        // Initialise or retrieve in-memory state
         const state = createRoomState(
           roomCode,
-          roomDoc.quizId, // populated quiz object
+          roomDoc.quizId,
           roomDoc.hostId._id.toString(),
           isHost ? socket.id : undefined,
         );
@@ -227,13 +422,12 @@ export const registerSocketHandlers = (io) => {
           name: userName,
           socketId: socket.id,
         });
+        clearPlayerDisconnectTimeout(roomCode, userId);
 
-        // Tell everyone else a new player joined
         socket
           .to(roomCode)
           .emit("player_joined", { player: publicPlayer(player) });
 
-        // If room is new or status updated, notify dashboard
         io.to("dashboard").emit("room_status_update", {
           roomCode,
           status: state.status,
@@ -245,23 +439,40 @@ export const registerSocketHandlers = (io) => {
           createdAt: roomDoc.createdAt,
         });
 
-        // Send current room state to the joining player
+        const currentQuestion =
+          state.status === "active" && !player.finished
+            ? sanitiseQuestion(
+                state.quiz.questions[player.currentQuestionIndex],
+              )
+            : null;
+
         socket.emit("room_joined", {
           room: {
             roomCode,
             status: state.status,
             hostId: state.hostId,
             quizId: state.quiz._id,
-            currentQuestionIndex: state.currentQuestionIndex,
+            currentQuestionIndex: player.currentQuestionIndex,
             totalQuestions: state.quiz.questions.length,
             timePerQuestion: state.quiz.timePerQuestion,
           },
           players: getAllPlayers(roomCode).map(publicPlayer),
-          currentQuestion:
-            state.status === "active"
-              ? sanitiseQuestion(state.quiz.questions[state.currentQuestionIndex])
-              : null,
+          leaderboard: getLeaderboard(roomCode),
+          currentQuestion,
+          playerProgress: {
+            currentQuestionIndex: player.currentQuestionIndex,
+            finished: player.finished,
+            finishedAt: player.finishedAt,
+          },
         });
+
+        if (
+          state.status === "active" &&
+          !player.finished &&
+          !player.isDisqualified
+        ) {
+          emitQuestionToPlayer(io, roomCode, userId);
+        }
       } catch (err) {
         console.error("[Socket] join_room error:", err.message);
         socket.emit("error", {
@@ -270,14 +481,12 @@ export const registerSocketHandlers = (io) => {
       }
     });
 
-    // ── player_ready ─────────────────────────────────────────
     socket.on("player_ready", ({ roomCode, userId, isReady }) => {
       const player = setPlayerReady(roomCode, userId, isReady);
       if (!player) return;
       io.to(roomCode).emit("player_ready", { userId, isReady });
     });
 
-    // ── start_game ───────────────────────────────────────────
     socket.on("start_game", ({ roomCode }) => {
       const state = getRoomState(roomCode);
       if (!state) {
@@ -285,14 +494,21 @@ export const registerSocketHandlers = (io) => {
         return;
       }
 
-      // Only host can start
       if (state.hostSocketId !== socket.id) {
         socket.emit("error", { message: "Only the host can start the game." });
         return;
       }
 
       state.status = "active";
-      state.currentQuestionIndex = 0;
+
+      for (const player of state.players.values()) {
+        player.currentQuestionIndex = 0;
+        player.questionTimers = {};
+        player.answeredQuestions = new Set();
+        player.finished = false;
+        player.finishedAt = null;
+        player.lastQuestionStartedAt = null;
+      }
 
       io.to("dashboard").emit("room_status_update", {
         roomCode,
@@ -300,69 +516,78 @@ export const registerSocketHandlers = (io) => {
       });
 
       io.to(roomCode).emit("game_started", {
-        firstQuestion: sanitiseQuestion(state.quiz.questions[0]),
         totalQuestions: state.quiz.questions.length,
         timePerQuestion: state.quiz.timePerQuestion,
       });
 
-      // Start the first question timer
-      state.questionTimeout = setTimeout(() => {
-        advanceQuestion(io, roomCode, 0);
-      }, state.quiz.timePerQuestion * 1000);
+      for (const player of state.players.values()) {
+        if (!player.isConnected || player.isDisqualified) continue;
+        emitQuestionToPlayer(io, roomCode, player.userId);
+      }
     });
 
-    // ── submit_answer ────────────────────────────────────────
     socket.on(
       "submit_answer",
-      ({ roomCode, userId, questionIndex, selectedAnswer, timeTaken }) => {
+      async ({
+        roomCode,
+        userId,
+        questionIndex,
+        selectedAnswer,
+        timeTaken,
+      }) => {
         const state = getRoomState(roomCode);
         if (!state || state.status !== "active") return;
 
-        // Ignore answers for a stale question index
-        if (state.currentQuestionIndex !== questionIndex) return;
+        const player = findPlayerById(state, userId);
+        if (!player || player.finished || player.isDisqualified) return;
+
+        const expectedQuestionIndex = player.currentQuestionIndex;
+        if (expectedQuestionIndex !== questionIndex) return;
+        if (hasPlayerAnsweredQuestion(roomCode, userId, questionIndex)) return;
 
         const question = state.quiz.questions[questionIndex];
-        const isCorrect = question.correctAnswer === selectedAnswer;
-        const points = calculateScore(timeTaken, isCorrect);
+        if (!question) return;
 
-        const player = recordAnswer(
+        clearPlayerQuestionTimer(roomCode, userId, questionIndex);
+
+        const resolvedTimeTaken = Number.isFinite(timeTaken)
+          ? Math.max(1, Math.min(timeTaken, state.quiz.timePerQuestion))
+          : state.quiz.timePerQuestion;
+
+        const isCorrect = question.correctAnswer === selectedAnswer;
+        const points = calculateScore(resolvedTimeTaken, isCorrect);
+
+        const updatedPlayer = recordAnswer(
           roomCode,
           userId,
           {
             questionIndex,
             selectedAnswer,
             isCorrect,
-            timeTaken,
+            timeTaken: resolvedTimeTaken,
           },
           points,
         );
 
-        if (!player) return;
+        if (!updatedPlayer) return;
 
-        // Send result back to the answering player only
-        socket.emit("answer_result", {
+        io.to(player.socketId).emit("answer_result", {
           isCorrect,
           correctAnswer: question.correctAnswer,
           pointsEarned: points,
-          currentScore: player.score,
+          currentScore: updatedPlayer.score,
+          questionIndex,
         });
 
-        // Broadcast updated leaderboard to everyone in room
-        io.to(roomCode).emit("leaderboard_update", {
-          leaderboard: getLeaderboard(roomCode),
-        });
-
-        // Auto-advance if all connected players have answered
-        checkAllAnswered(io, roomCode, questionIndex);
+        emitLeaderboard(io, roomCode);
+        await advancePlayer(io, roomCode, userId, QUESTION_FEEDBACK_DELAY_MS);
       },
     );
 
-    // ── disqualify_player ────────────────────────────────────
-    socket.on("disqualify_player", ({ roomCode, userId, reason }) => {
-      disqualifyPlayer(io, roomCode, userId, reason);
+    socket.on("disqualify_player", async ({ roomCode, userId, reason }) => {
+      await disqualifyPlayer(io, roomCode, userId, reason);
     });
 
-    // ── leave_room ───────────────────────────────────────────
     socket.on("leave_room", ({ roomCode, userId }) => {
       removePlayer(roomCode, userId);
       socket.leave(roomCode);
@@ -377,8 +602,7 @@ export const registerSocketHandlers = (io) => {
       }
     });
 
-    // ── disconnect ───────────────────────────────────────────
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       const found = findRoomBySocketId(socket.id);
       if (!found) return;
 
@@ -386,7 +610,6 @@ export const registerSocketHandlers = (io) => {
       const state = getRoomState(roomCode);
       if (!state) return;
 
-      // Mark disconnected
       player.isConnected = false;
       io.to(roomCode).emit("player_left", { userId: player.userId });
 
@@ -399,7 +622,6 @@ export const registerSocketHandlers = (io) => {
 
       if (isHost) {
         if (state.status === "waiting") {
-          // Room not started yet — close it
           io.to(roomCode).emit("error", {
             message: "Host disconnected. Room has been closed.",
           });
@@ -411,7 +633,6 @@ export const registerSocketHandlers = (io) => {
           return;
         }
 
-        // Game active — promote next connected player as host
         const nextHost = Array.from(state.players.values()).find(
           (p) => p.isConnected,
         );
@@ -422,10 +643,27 @@ export const registerSocketHandlers = (io) => {
         }
       }
 
-      // If nobody is left, clean up
-      // If game is active, mark player as disqualified (Mid-game leave)
-      if (state.status === "active" && !player.isDisqualified) {
-        disqualifyPlayer(io, roomCode, player.userId, "Left during gameplay");
+      if (state.status === "active" && !player.finished) {
+        const disconnectTimer = setTimeout(async () => {
+          const latestState = getRoomState(roomCode);
+          if (!latestState || latestState.status !== "active") return;
+
+          const latestPlayer = findPlayerById(latestState, player.userId);
+          if (
+            !latestPlayer ||
+            latestPlayer.finished ||
+            latestPlayer.isConnected
+          ) {
+            return;
+          }
+
+          clearAllPlayerQuestionTimers(roomCode, latestPlayer.userId);
+          markPlayerFinished(roomCode, latestPlayer.userId, Date.now());
+          notifyPlayerFinished(io, roomCode, latestPlayer);
+          await maybeEndGame(io, roomCode);
+        }, DISCONNECT_GRACE_MS);
+
+        setPlayerDisconnectTimeout(roomCode, player.userId, disconnectTimer);
       }
 
       const anyoneConnected = Array.from(state.players.values()).some(

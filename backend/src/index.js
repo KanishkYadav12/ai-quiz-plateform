@@ -17,14 +17,35 @@ import userRoutes from "./routes/user.routes.js";
 import { registerSocketHandlers } from "./socket/socket.handler.js";
 
 const PORT = getEnv("PORT", "8000");
-const FRONTEND_ORIGIN = getEnv("FRONTEND_ORIGIN", "http://localhost:3000");
 const NODE_ENV = getEnv("NODE_ENV", "development");
+const FRONTEND_ORIGINS = getEnv(
+  "FRONTEND_ORIGIN",
+  "http://localhost:3000,http://localhost:3001",
+)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const LOCAL_DEV_ORIGINS = ["http://localhost:3000", "http://localhost:3001"];
+const ALLOWED_ORIGINS =
+  NODE_ENV === "development"
+    ? [...new Set([...FRONTEND_ORIGINS, ...LOCAL_DEV_ORIGINS])]
+    : FRONTEND_ORIGINS;
+
+const corsOptions = {
+  credentials: true,
+  origin: (origin, callback) => {
+    // Allow non-browser clients/tools that do not send an Origin header.
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+};
 
 // ── Express app ────────────────────────────────────────────────
 const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -69,7 +90,7 @@ const bootstrap = async () => {
 
     const io = new Server(httpServer, {
       cors: {
-        origin: FRONTEND_ORIGIN,
+        origin: ALLOWED_ORIGINS,
         methods: ["GET", "POST"],
         credentials: true,
       },
@@ -80,7 +101,7 @@ const bootstrap = async () => {
     httpServer.listen(PORT, () => {
       console.log(`🚀 Server running → http://localhost:${PORT}`);
       console.log(`📡 Socket.io ready`);
-      console.log(`🌍 Accepting requests from: ${FRONTEND_ORIGIN}`);
+      console.log(`🌍 Accepting requests from: ${ALLOWED_ORIGINS.join(", ")}`);
     });
   } catch (err) {
     console.error("❌ Failed to start server:", err.message);

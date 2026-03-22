@@ -13,7 +13,6 @@ import {
   WifiOff,
   Share2,
   UserCheck,
-  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import Navbar from "@/components/layout/Navbar";
@@ -73,7 +72,6 @@ export default function LobbyPage() {
         <Navbar />
         <main className="max-w-4xl px-6 py-12 mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
-
             {/* Left Column: Room Code & Status */}
             <div className="lg:col-span-2 space-y-6">
               <div className="card p-8 bg-[var(--bg-secondary)] border-[var(--border)] text-center relative overflow-hidden">
@@ -99,21 +97,28 @@ export default function LobbyPage() {
 
               <div className="card p-6 bg-[var(--bg-secondary)] border-[var(--border)]">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-disabled)]">Server Status</span>
-                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${isConnected ? "bg-[var(--success-muted)] text-[var(--success)] border-[var(--success)]" : "bg-[var(--error-muted)] text-[var(--error)] border-[var(--error)]"}`}>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-disabled)]">
+                    Server Status
+                  </span>
+                  <div
+                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${isConnected ? "bg-[var(--success-muted)] text-[var(--success)] border-[var(--success)]" : "bg-[var(--error-muted)] text-[var(--error)] border-[var(--error)]"}`}
+                  >
                     {isConnected ? <Wifi size={12} /> : <WifiOff size={12} />}
                     {isConnected ? "Live" : "Offline"}
                   </div>
                 </div>
                 <div className="space-y-4">
-                   <div className="flex items-center gap-3 text-sm font-medium text-[var(--text-secondary)]">
-                      <ShieldCheck size={16} className="text-[var(--success)]" />
-                      Anti-Cheat Active
-                   </div>
-                   <div className="flex items-center gap-3 text-sm font-medium text-[var(--text-secondary)]">
-                      <UserCheck size={16} className="text-[var(--accent-primary)]" />
-                      Private Room
-                   </div>
+                  <div className="flex items-center gap-3 text-sm font-medium text-[var(--text-secondary)]">
+                    <CheckCircle2 size={16} className="text-[var(--success)]" />
+                    Smooth Play Mode
+                  </div>
+                  <div className="flex items-center gap-3 text-sm font-medium text-[var(--text-secondary)]">
+                    <UserCheck
+                      size={16}
+                      className="text-[var(--accent-primary)]"
+                    />
+                    Private Room
+                  </div>
                 </div>
               </div>
             </div>
@@ -127,8 +132,12 @@ export default function LobbyPage() {
                       <Users size={20} />
                     </div>
                     <div>
-                      <h2 className="font-bold text-[var(--text-primary)]">Lobby Participants</h2>
-                      <p className="text-[10px] font-black text-[var(--text-disabled)] uppercase tracking-wider">{game.players.length} Players connected</p>
+                      <h2 className="font-bold text-[var(--text-primary)]">
+                        Lobby Participants
+                      </h2>
+                      <p className="text-[10px] font-black text-[var(--text-disabled)] uppercase tracking-wider">
+                        {game.players.length} Players connected
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -137,7 +146,9 @@ export default function LobbyPage() {
                   {game.players.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-[var(--text-disabled)]">
                       <Loader2 size={32} className="animate-spin mb-4" />
-                      <p className="font-bold uppercase tracking-widest text-xs">Waiting for participants...</p>
+                      <p className="font-bold uppercase tracking-widest text-xs">
+                        Waiting for participants...
+                      </p>
                     </div>
                   ) : (
                     game.players.map((player) => (
@@ -151,12 +162,20 @@ export default function LobbyPage() {
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-[var(--text-primary)]">{player.name}</span>
+                              <span className="font-bold text-[var(--text-primary)]">
+                                {player.name}
+                              </span>
                               {player.userId === game.hostId && (
-                                <span className="text-[8px] font-black text-[var(--accent-primary)] bg-[var(--accent-muted)] px-2 py-0.5 rounded-full uppercase tracking-widest border border-[var(--accent-primary)]/10">Host</span>
+                                <span className="text-[8px] font-black text-[var(--accent-primary)] bg-[var(--accent-muted)] px-2 py-0.5 rounded-full uppercase tracking-widest border border-[var(--accent-primary)]/10">
+                                  Host
+                                </span>
                               )}
                             </div>
-                            <p className="text-[10px] font-bold text-[var(--text-disabled)] uppercase tracking-widest">{player.userId === currentUser?._id ? "You" : "Participant"}</p>
+                            <p className="text-[10px] font-bold text-[var(--text-disabled)] uppercase tracking-widest">
+                              {player.userId === currentUser?._id
+                                ? "You"
+                                : "Participant"}
+                            </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -171,7 +190,9 @@ export default function LobbyPage() {
                               </div>
                             )
                           ) : (
-                            <div className="text-[10px] font-black text-[var(--text-disabled)] uppercase tracking-[0.2em]">Hosting</div>
+                            <div className="text-[10px] font-black text-[var(--text-disabled)] uppercase tracking-[0.2em]">
+                              Hosting
+                            </div>
                           )}
                         </div>
                       </div>
@@ -211,10 +232,14 @@ export default function LobbyPage() {
                     </button>
                   )}
                   {isActualHost && !allReady && game.players.length > 1 && (
-                    <p className="text-center text-[10px] font-bold text-[var(--text-disabled)] uppercase tracking-widest mt-4">All participants must mark ready to begin</p>
+                    <p className="text-center text-[10px] font-bold text-[var(--text-disabled)] uppercase tracking-widest mt-4">
+                      All participants must mark ready to begin
+                    </p>
                   )}
                   {isActualHost && game.players.length <= 1 && (
-                    <p className="text-center text-[10px] font-bold text-[var(--text-disabled)] uppercase tracking-widest mt-4">Invite players to join the competition</p>
+                    <p className="text-center text-[10px] font-bold text-[var(--text-disabled)] uppercase tracking-widest mt-4">
+                      Invite players to join the competition
+                    </p>
                   )}
                 </div>
               </div>
