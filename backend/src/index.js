@@ -18,17 +18,22 @@ import { registerSocketHandlers } from "./socket/socket.handler.js";
 
 const PORT = getEnv("PORT", "8000");
 const NODE_ENV = getEnv("NODE_ENV", "development");
+const normalizeOrigin = (origin) => origin.replace(/\/$/, "");
 const FRONTEND_ORIGINS = getEnv(
   "FRONTEND_ORIGIN",
-  "http://localhost:3000,http://localhost:3001",
+  "https://ai-quiz-plateform.vercel.app,http://localhost:3000,http://localhost:3001",
 )
   .split(",")
-  .map((origin) => origin.trim())
+  .map((origin) => normalizeOrigin(origin.trim()))
   .filter(Boolean);
 const LOCAL_DEV_ORIGINS = ["http://localhost:3000", "http://localhost:3001"];
 const ALLOWED_ORIGINS =
   NODE_ENV === "development"
-    ? [...new Set([...FRONTEND_ORIGINS, ...LOCAL_DEV_ORIGINS])]
+    ? [
+        ...new Set(
+          [...FRONTEND_ORIGINS, ...LOCAL_DEV_ORIGINS].map(normalizeOrigin),
+        ),
+      ]
     : FRONTEND_ORIGINS;
 
 const corsOptions = {
@@ -36,7 +41,8 @@ const corsOptions = {
   origin: (origin, callback) => {
     // Allow non-browser clients/tools that do not send an Origin header.
     if (!origin) return callback(null, true);
-    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(normalizeOrigin(origin)))
+      return callback(null, true);
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
 };
