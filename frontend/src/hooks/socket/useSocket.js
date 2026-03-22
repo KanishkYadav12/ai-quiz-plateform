@@ -4,6 +4,12 @@ import { useDispatch } from "react-redux";
 import { io } from "socket.io-client";
 import { roomActions } from "@/redux/slices/room/roomSlice";
 
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL;
+
+if (!SOCKET_URL) {
+  throw new Error("Missing NEXT_PUBLIC_SOCKET_URL in frontend environment");
+}
+
 export const useSocket = () => {
   const dispatch = useDispatch();
   const socketRef = useRef(null);
@@ -12,7 +18,7 @@ export const useSocket = () => {
   useEffect(() => {
     if (socketRef.current) return;
 
-    socketRef.current = io(process.env.NEXT_PUBLIC_SOCKET_URL, {
+    socketRef.current = io(SOCKET_URL, {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
