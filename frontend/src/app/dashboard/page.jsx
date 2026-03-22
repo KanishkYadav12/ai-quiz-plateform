@@ -272,6 +272,14 @@ export default function DashboardPage() {
     }
   }, [isConnected]);
 
+  useEffect(() => {
+    const id = setInterval(() => {
+      loadLiveRooms();
+    }, 10000);
+
+    return () => clearInterval(id);
+  }, [loadLiveRooms]);
+
   const handleJoinRoom = (roomCode) => {
     router.push(`/room/${roomCode}/lobby`);
   };

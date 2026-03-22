@@ -4,11 +4,22 @@ import { useDispatch } from "react-redux";
 import { io } from "socket.io-client";
 import { roomActions } from "@/redux/slices/room/roomSlice";
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL;
+const PROD_BACKEND = "https://ai-quiz-plateform.onrender.com";
 
-if (!SOCKET_URL) {
-  throw new Error("Missing NEXT_PUBLIC_SOCKET_URL in frontend environment");
-}
+const resolveSocketUrl = () => {
+  if (process.env.NEXT_PUBLIC_SOCKET_URL) {
+    return process.env.NEXT_PUBLIC_SOCKET_URL;
+  }
+
+  if (typeof window !== "undefined") {
+    const isLocalHost = ["localhost", "127.0.0.1"].includes(
+      window.location.hostname,
+    );
+    if (isLocalHost) return "http://localhost:8000";
+  }
+
+  return PROD_BACKEND;
+};
 
 export const useSocket = () => {
   const dispatch = useDispatch();
@@ -18,7 +29,7 @@ export const useSocket = () => {
   useEffect(() => {
     if (socketRef.current) return;
 
-    socketRef.current = io(SOCKET_URL, {
+    socketRef.current = io(resolveSocketUrl(), {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
@@ -63,6 +74,20 @@ export const useSocket = () => {
     s.on("player_disqualified", (payload) =>
       dispatch(roomActions.playerDisqualified(payload)),
     );
+    s.on("host_changed", (payload) =>
+      dispatch(roomActions.hostChanged(payload)),
+    );
+    s.on("error", (payload) => {
+      dispatch(roomActions.socketError(payload));
+
+      // If server room state was lost (e.g. restart), return user to dashboard.
+      if (
+        typeof window !== "undefined" &&
+        payload?.message?.toLowerCase().includes("room not found")
+      ) {
+        window.location.href = "/dashboard";
+      }
+    });
 
     return () => {
       s.disconnect();

@@ -11,6 +11,7 @@ const initialState = {
   game: {
     roomCode: null,
     status: "idle",
+    hostId: null,
     players: [],
     currentQuestion: null,
     questionIndex: 0,
@@ -27,6 +28,7 @@ const initialState = {
     },
     allPlayersFinished: false,
     finalResult: null,
+    lastError: null,
   },
 };
 
@@ -162,6 +164,9 @@ const roomSlice = createSlice({
       const p = state.game.players.find((p) => p.userId === payload.userId);
       if (p) p.isReady = payload.isReady;
     },
+    hostChanged: (state, { payload }) => {
+      state.game.hostId = payload.newHostId;
+    },
     gameStarted: (state, { payload }) => {
       state.game.status = "active";
       state.game.currentQuestion = null;
@@ -225,6 +230,9 @@ const roomSlice = createSlice({
       state.game.leaderboard = payload.finalLeaderboard;
       state.game.allPlayersFinished = true;
       state.game.waitingForOthers = false;
+    },
+    socketError: (state, { payload }) => {
+      state.game.lastError = payload?.message || "Socket error";
     },
     allPlayersFinished: (state) => {
       state.game.allPlayersFinished = true;

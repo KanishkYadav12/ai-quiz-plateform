@@ -24,12 +24,13 @@ import {
 import {
   getRoomByCode,
   saveFinalScoresToRoom,
+  updateRoomStatus,
 } from "../services/room.service.js";
 import { processGameRewards } from "../services/coin.service.js";
 import { Quiz } from "../models/quiz.model.js";
 import { calculateScore } from "../utils/scoring.util.js";
 
-const QUESTION_FEEDBACK_DELAY_MS = 1500;
+const QUESTION_FEEDBACK_DELAY_MS = 0;
 const DISCONNECT_GRACE_MS = 12000;
 
 const sanitiseQuestion = (question) => ({
@@ -358,7 +359,7 @@ const endGame = async (io, roomCode) => {
     ]),
   );
 
-  io.to(roomCode).emit("game_over", {
+  const finalPayload = {
     finalLeaderboard,
     winner,
     rewards,
@@ -367,10 +368,12 @@ const endGame = async (io, roomCode) => {
     playerStats,
     coinsAwarded,
     allPlayersFinished: true,
-  });
+  };
+
+  io.to(roomCode).emit("game_over", finalPayload);
 
   try {
-    await saveFinalScoresToRoom(roomCode, players);
+    await saveFinalScoresToRoom(roomCode, players, finalPayload);
 
     const quiz = await Quiz.findById(state.quiz._id);
     if (quiz) {
@@ -386,6 +389,13 @@ const endGame = async (io, roomCode) => {
       "[Socket] Failed to save final scores / update analytics:",
       err.message,
     );
+
+    // Ensure room does not remain in live list if persistence partially fails.
+    try {
+      await updateRoomStatus(roomCode, "completed");
+    } catch {
+      // no-op fallback
+    }
   }
 
   deleteRoomState(roomCode);
@@ -499,6 +509,14 @@ export const registerSocketHandlers = (io) => {
         return;
       }
 
+      // Remove stale offline players before game starts so they cannot block
+      // all-finished detection later.
+      for (const p of Array.from(state.players.values())) {
+        if (!p.isConnected) {
+          removePlayer(roomCode, p.userId);
+        }
+      }
+
       state.status = "active";
 
       for (const player of state.players.values()) {
@@ -541,6 +559,13 @@ export const registerSocketHandlers = (io) => {
         const player = findPlayerById(state, userId);
         if (!player || player.finished || player.isDisqualified) return;
 
+        // Keep player socket binding fresh even if reconnect happened mid-round.
+        if (player.socketId !== socket.id) {
+          player.socketId = socket.id;
+          player.isConnected = true;
+          clearPlayerDisconnectTimeout(roomCode, userId);
+        }
+
         const expectedQuestionIndex = player.currentQuestionIndex;
         if (expectedQuestionIndex !== questionIndex) return;
         if (hasPlayerAnsweredQuestion(roomCode, userId, questionIndex)) return;
@@ -571,7 +596,7 @@ export const registerSocketHandlers = (io) => {
 
         if (!updatedPlayer) return;
 
-        io.to(player.socketId).emit("answer_result", {
+        socket.emit("answer_result", {
           isCorrect,
           correctAnswer: question.correctAnswer,
           pointsEarned: points,
@@ -641,6 +666,16 @@ export const registerSocketHandlers = (io) => {
           state.hostSocketId = nextHost.socketId;
           io.to(roomCode).emit("host_changed", { newHostId: nextHost.userId });
         }
+      }
+
+      // In lobby/waiting state, remove disconnected non-host players
+      // immediately so they do not linger into the game start state.
+      if (state.status === "waiting" && !isHost) {
+        removePlayer(roomCode, player.userId);
+        io.to("dashboard").emit("room_status_update", {
+          roomCode,
+          playerCount: state.players.size,
+        });
       }
 
       if (state.status === "active" && !player.finished) {

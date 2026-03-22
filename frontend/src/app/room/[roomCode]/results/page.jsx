@@ -1,6 +1,6 @@
 "use client";
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Trophy,
@@ -29,6 +29,7 @@ import {
 import AuthGuard from "@/components/layout/AuthGuard";
 import { selectGame, roomActions } from "@/redux/slices/room/roomSlice";
 import { selectCurrentUser } from "@/redux/slices/auth/authSlice";
+import { roomService } from "@/services/room";
 
 const rankLabel = (idx) => {
   if (idx === 0) return "1st";
@@ -44,15 +45,72 @@ const rankBadge = (idx) => {
   return "";
 };
 
+const resolveStatsForUser = (stats, userId) => {
+  if (!stats || !userId) return null;
+  const key = userId.toString();
+  if (stats[key]) return stats[key];
+  const match = Object.entries(stats).find(([k]) => k.toString() === key);
+  return match?.[1] || null;
+};
+
+const hasCompleteFinal = (result, userId = null) => {
+  if (!result) return false;
+  const hasLeaderboard = Array.isArray(result.finalLeaderboard);
+  const hasStats =
+    result.playerStats && Object.keys(result.playerStats).length > 0;
+  const hasAnalytics =
+    result.quizAnalytics && result.quizAnalytics.totalQuestions > 0;
+  const hasCurrentUser = userId
+    ? !!resolveStatsForUser(result.playerStats, userId)
+    : true;
+  return hasLeaderboard && hasStats && hasAnalytics && hasCurrentUser;
+};
+
 export default function ResultsPage() {
+  const { roomCode } = useParams();
   const router = useRouter();
   const dispatch = useDispatch();
   const game = useSelector(selectGame);
   const currentUser = useSelector(selectCurrentUser);
-  const currentUserId = currentUser?._id;
+  const currentUserId = currentUser?._id?.toString();
   const [expandedQuestions, setExpandedQuestions] = useState(true);
+  const [fetchedFinal, setFetchedFinal] = useState(null);
 
-  const final = game.finalResult || {};
+  useEffect(() => {
+    let cancelled = false;
+    let timerId = null;
+
+    const loadCanonicalFinal = async () => {
+      if (!roomCode) return;
+      if (hasCompleteFinal(game.finalResult, currentUserId)) return;
+
+      try {
+        const res = await roomService.getByCode(roomCode);
+        const room = res?.data?.room;
+        const canonical = room?.finalResult;
+        if (!cancelled && canonical) {
+          setFetchedFinal(canonical);
+        }
+      } catch {
+        // Keep rendering socket state fallback.
+      }
+    };
+
+    loadCanonicalFinal();
+
+    if (!hasCompleteFinal(game.finalResult, currentUserId)) {
+      timerId = setInterval(loadCanonicalFinal, 1500);
+    }
+
+    return () => {
+      cancelled = true;
+      if (timerId) clearInterval(timerId);
+    };
+  }, [roomCode, game.finalResult, currentUserId]);
+
+  const final = hasCompleteFinal(game.finalResult, currentUserId)
+    ? game.finalResult
+    : fetchedFinal || {};
   const finalLeaderboard = useMemo(
     () =>
       [...(final.finalLeaderboard || game.leaderboard || [])].sort(
@@ -63,7 +121,7 @@ export default function ResultsPage() {
 
   const winner = final.winner || finalLeaderboard[0] || null;
   const playerStats = final.playerStats || {};
-  const myStats = currentUserId ? playerStats[currentUserId] : null;
+  const myStats = resolveStatsForUser(playerStats, currentUserId);
   const quizAnalytics = final.quizAnalytics || {
     totalQuestions: 0,
     questionStats: [],
@@ -114,6 +172,7 @@ export default function ResultsPage() {
   const myPlacementCoins = myStats?.bonusBreakdown?.placement ?? 0;
   const myBonuses = myStats?.bonusBreakdown?.bonuses || [];
   const myBadges = myStats?.badgesEarned || [];
+  const winnerInitial = (winner?.name || "?").trim().charAt(0).toUpperCase();
 
   return (
     <AuthGuard>
@@ -153,8 +212,13 @@ export default function ResultsPage() {
                   </span>
                 </p>
               </div>
-              <div className="w-24 h-24 rounded-3xl bg-[var(--gold)]/20 border border-[var(--gold)]/40 flex items-center justify-center">
-                <Trophy className="text-[var(--gold)]" size={48} />
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl border border-[var(--accent-primary)]/30 bg-[var(--accent-muted)] text-[var(--accent-primary)] flex items-center justify-center text-2xl font-black mono">
+                  {winnerInitial}
+                </div>
+                <div className="w-24 h-24 rounded-3xl bg-[var(--gold)]/20 border border-[var(--gold)]/40 flex items-center justify-center">
+                  <Trophy className="text-[var(--gold)]" size={48} />
+                </div>
               </div>
             </div>
           </section>
@@ -311,7 +375,8 @@ export default function ResultsPage() {
                   <td className="py-3 font-bold">Correct</td>
                   {finalLeaderboard.map((p) => (
                     <td key={p.userId} className="py-3 mono">
-                      {playerStats[p.userId]?.correct || 0}/{totalQuestions}
+                      {resolveStatsForUser(playerStats, p.userId)?.correct || 0}
+                      /{totalQuestions}
                     </td>
                   ))}
                 </tr>
@@ -319,7 +384,8 @@ export default function ResultsPage() {
                   <td className="py-3 font-bold">Avg Time</td>
                   {finalLeaderboard.map((p) => (
                     <td key={p.userId} className="py-3 mono">
-                      {playerStats[p.userId]?.avgTime || 0}s
+                      {resolveStatsForUser(playerStats, p.userId)?.avgTime || 0}
+                      s
                     </td>
                   ))}
                 </tr>

@@ -2,18 +2,12 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
-import {
-  CheckCircle2,
-  XCircle,
-  Trophy,
-  Clock,
-  AlertTriangle,
-  Loader2,
-} from "lucide-react";
+import { Trophy, Loader2 } from "lucide-react";
 import AuthGuard from "@/components/layout/AuthGuard";
 import { useSocket } from "@/hooks/socket/useSocket";
 import { selectGame } from "@/redux/slices/room/roomSlice";
 import { selectCurrentUser } from "@/redux/slices/auth/authSlice";
+import { roomService } from "@/services/room";
 
 function TimerRing({ timeLeft, total }) {
   const safeTotal = Math.max(total || 1, 1);
@@ -74,7 +68,6 @@ export default function GamePlayPage() {
   const [answered, setAnswered] = useState(false);
   const [startTime, setStartTime] = useState(null);
 
-  const joined = useRef(false);
   const autoSubmittedRef = useRef(false);
 
   const myLeaderboardEntry = useMemo(
@@ -88,8 +81,7 @@ export default function GamePlayPage() {
   }, [game.finishedPlayers, currentUserId]);
 
   useEffect(() => {
-    if (!isConnected || !currentUser || joined.current) return;
-    joined.current = true;
+    if (!isConnected || !currentUser) return;
     joinRoom(roomCode, currentUser._id, currentUser.name);
   }, [isConnected, currentUser, roomCode, joinRoom]);
 
@@ -177,29 +169,72 @@ export default function GamePlayPage() {
   ]);
 
   useEffect(() => {
-    if (!game.answerResult) return;
-    if (game.answerResult.questionIndex !== game.questionIndex) return;
-    setAnswered(true);
-  }, [game.answerResult, game.questionIndex]);
+    if (!answered || meFinished || !currentUser) return;
+
+    // Recovery path: if next question does not arrive quickly, force room resync.
+    const t = setTimeout(() => {
+      joinRoom(roomCode, currentUser._id, currentUser.name);
+    }, 2500);
+
+    return () => clearTimeout(t);
+  }, [answered, meFinished, currentUser, joinRoom, roomCode]);
 
   const getOptionStyle = (option) => {
     if (!answered) {
       return "bg-[var(--bg-secondary)] border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--accent-primary)] hover:bg-[var(--accent-muted)] cursor-pointer group";
     }
-    const ar = game.answerResult;
-    if (option === ar?.correctAnswer) {
-      return "bg-[var(--success-muted)] border-[var(--success)] text-[var(--success)] shadow-[0_0_15px_rgba(63,185,80,0.15)]";
-    }
-    if (option === selected && !ar?.isCorrect) {
-      return "bg-[var(--error-muted)] border-[var(--error)] text-[var(--error)]";
-    }
+    if (option === selected)
+      return "bg-[var(--accent-muted)] border-[var(--accent-primary)] text-[var(--accent-primary)]";
     return "bg-[var(--bg-tertiary)] border-[var(--border)] text-[var(--text-disabled)] opacity-50";
   };
 
   const finishedCount = game.finishedPlayers?.length || 0;
   const totalPlayers = game.players?.length || 0;
+  const shouldShowWaiting =
+    meFinished && game.status === "active" && totalPlayers > 1;
 
-  if (meFinished && game.status === "active") {
+  useEffect(() => {
+    if (meFinished && game.status === "active" && totalPlayers <= 1) {
+      router.push(`/room/${roomCode}/results`);
+    }
+  }, [meFinished, game.status, totalPlayers, roomCode, router]);
+
+  useEffect(() => {
+    if (!shouldShowWaiting) return;
+    if (totalPlayers > 0 && finishedCount >= totalPlayers) {
+      router.push(`/room/${roomCode}/results`);
+    }
+  }, [shouldShowWaiting, finishedCount, totalPlayers, roomCode, router]);
+
+  useEffect(() => {
+    if (!shouldShowWaiting) return;
+
+    let stopped = false;
+    const poll = async () => {
+      try {
+        const res = await roomService.getByCode(roomCode);
+        const status = res?.data?.room?.status;
+        if (!stopped && status === "completed") {
+          router.push(`/room/${roomCode}/results`);
+        }
+      } catch {
+        // Keep waiting based on socket events.
+      }
+    };
+
+    poll();
+    const id = setInterval(poll, 2000);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+    };
+  }, [shouldShowWaiting, roomCode, router]);
+
+  if (meFinished && game.status === "active" && totalPlayers <= 1) {
+    return null;
+  }
+
+  if (shouldShowWaiting) {
     return (
       <AuthGuard>
         <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col page-enter">
@@ -359,80 +394,11 @@ export default function GamePlayPage() {
                   {["A", "B", "C", "D"][i]}
                 </span>
                 <span className="flex-1">{option}</span>
-                {answered && option === game.answerResult?.correctAnswer && (
-                  <CheckCircle2 size={24} className="text-[var(--success)]" />
-                )}
-                {answered &&
-                  option === selected &&
-                  !game.answerResult?.isCorrect && (
-                    <XCircle size={24} className="text-[var(--error)]" />
-                  )}
               </button>
             ))}
           </div>
 
-          <div className="h-32 mt-10">
-            {answered && game.answerResult && (
-              <div
-                className={`p-6 rounded-2xl border-2 flex items-center justify-between animate-[fadeSlideUp_0.3s_ease] ${
-                  game.answerResult.isCorrect
-                    ? "bg-[var(--success-muted)] border-[var(--success)]"
-                    : "bg-[var(--error-muted)] border-[var(--error)]"
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                      game.answerResult.isCorrect
-                        ? "bg-[var(--success)] text-white"
-                        : "bg-[var(--error)] text-white"
-                    }`}
-                  >
-                    {game.answerResult.isCorrect ? (
-                      <CheckCircle2 size={28} />
-                    ) : (
-                      <AlertTriangle size={28} />
-                    )}
-                  </div>
-                  <div>
-                    <h4
-                      className={`text-xl font-black ${
-                        game.answerResult.isCorrect
-                          ? "text-[var(--success)]"
-                          : "text-[var(--error)]"
-                      }`}
-                    >
-                      {game.answerResult.timedOut
-                        ? "Time up"
-                        : game.answerResult.isCorrect
-                          ? "Correct"
-                          : "Wrong"}
-                    </h4>
-                    <p className="text-[var(--text-secondary)] font-bold">
-                      Correct answer: {game.answerResult.correctAnswer}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="block text-[10px] font-black uppercase tracking-widest text-[var(--text-secondary)]">
-                    Points
-                  </span>
-                  <span className="text-3xl font-black mono text-[var(--text-primary)]">
-                    +{game.answerResult.pointsEarned}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {answered && !game.answerResult && (
-              <div className="flex flex-col items-center justify-center gap-3 p-8 text-[var(--text-secondary)] rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border)] border-dashed border-2">
-                <Clock size={32} className="animate-pulse" />
-                <span className="font-bold uppercase tracking-widest text-xs">
-                  Scoring your answer...
-                </span>
-              </div>
-            )}
-          </div>
+          <div className="h-10 mt-6" />
 
           {game.leaderboard?.length > 0 && (
             <div className="mt-12">

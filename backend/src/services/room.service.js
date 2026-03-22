@@ -99,19 +99,34 @@ export const savePlayerToRoom = async (roomCode, playerData) => {
   return room;
 };
 
-export const saveFinalScoresToRoom = async (roomCode, players) => {
+export const saveFinalScoresToRoom = async (
+  roomCode,
+  players,
+  finalResult = null,
+) => {
   const room = await Room.findOne({ roomCode });
   if (!room) return;
 
-  for (const player of room.players) {
-    const livePlayer = players.find(
-      (p) => p.userId.toString() === player.userId.toString(),
-    );
-    if (livePlayer) {
-      player.score = livePlayer.score ?? player.score;
-      player.answers = livePlayer.answers ?? player.answers;
-    }
-  }
+  // Persist the authoritative runtime snapshot so all clients can load the
+  // same completed result even after refresh/reconnect.
+  room.players = players.map((p) => ({
+    userId: p.userId,
+    name: p.name,
+    score: p.score,
+    answers: (p.answers || []).map((a) => ({
+      questionIndex: a.questionIndex,
+      selectedAnswer: a.selectedAnswer ?? null,
+      isCorrect: a.isCorrect,
+      timeTaken: a.timeTaken,
+      pointsEarned: a.pointsEarned,
+    })),
+    isReady: p.isReady,
+    isConnected: false,
+    socketId: null,
+    joinedAt: p.joinedAt || new Date(),
+  }));
+
+  room.finalResult = finalResult;
 
   room.status = "completed";
   room.completedAt = new Date();

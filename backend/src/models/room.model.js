@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const answerSchema = new mongoose.Schema(
   {
     questionIndex: { type: Number, required: true },
-    selectedAnswer: { type: String, required: true },
+    selectedAnswer: { type: String, default: null },
     isCorrect: { type: Boolean, required: true },
     timeTaken: { type: Number, required: true },
     pointsEarned: { type: Number, required: true },
@@ -49,6 +49,7 @@ const roomSchema = new mongoose.Schema(
     },
     players: { type: [playerSchema], default: [] },
     currentQuestionIndex: { type: Number, default: 0 },
+    finalResult: { type: mongoose.Schema.Types.Mixed, default: null },
     startedAt: { type: Date },
     completedAt: { type: Date },
   },

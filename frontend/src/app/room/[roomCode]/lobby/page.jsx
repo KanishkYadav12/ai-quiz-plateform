@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import {
@@ -26,22 +26,20 @@ export default function LobbyPage() {
   const router = useRouter();
   const currentUser = useSelector(selectCurrentUser);
   const game = useSelector(selectGame);
-  const joined = useRef(false);
 
   const { isConnected, joinRoom, markReady, startGame, leaveRoom } =
     useSocket();
 
   useEffect(() => {
-    if (!isConnected || !currentUser || joined.current) return;
-    joined.current = true;
+    if (!isConnected || !currentUser) return;
     joinRoom(roomCode, currentUser._id, currentUser.name);
-  }, [isConnected, currentUser]);
+  }, [isConnected, currentUser, roomCode, joinRoom]);
 
   useEffect(() => {
     if (game.status === "active") {
       router.push(`/room/${roomCode}/play`);
     }
-  }, [game.status]);
+  }, [game.status, roomCode, router]);
 
   const copyCode = () => {
     navigator.clipboard.writeText(roomCode);
