@@ -5,12 +5,24 @@ import { asyncHandler } from "./asyncHandler.js";
 
 export const protect = asyncHandler(async (req, _res, next) => {
   const authHeader = req.headers.authorization;
+  const cookieHeader = req.headers.cookie || "";
 
-  if (!authHeader?.startsWith("Bearer ")) {
-    throw new UnauthorizedException("No token provided. Please log in.");
+  const cookieToken = cookieHeader
+    .split(";")
+    .map((chunk) => chunk.trim())
+    .find((chunk) => chunk.startsWith("token="))
+    ?.split("=")[1];
+
+  let token = null;
+  if (authHeader?.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  } else if (cookieToken) {
+    token = decodeURIComponent(cookieToken);
   }
 
-  const token = authHeader.split(" ")[1];
+  if (!token) {
+    throw new UnauthorizedException("No token provided. Please log in.");
+  }
 
   let decoded;
   try {

@@ -16,6 +16,7 @@ import {
   BarChart3,
   Coins,
   User,
+  Loader2,
 } from "lucide-react";
 import {
   BarChart,
@@ -111,6 +112,7 @@ export default function ResultsPage() {
   const final = hasCompleteFinal(game.finalResult, currentUserId)
     ? game.finalResult
     : fetchedFinal || {};
+  const reportReady = hasCompleteFinal(final, currentUserId);
   const finalLeaderboard = useMemo(
     () =>
       [...(final.finalLeaderboard || game.leaderboard || [])].sort(
@@ -173,6 +175,27 @@ export default function ResultsPage() {
   const myBonuses = myStats?.bonusBreakdown?.bonuses || [];
   const myBadges = myStats?.badgesEarned || [];
   const winnerInitial = (winner?.name || "?").trim().charAt(0).toUpperCase();
+
+  if (!reportReady) {
+    return (
+      <AuthGuard>
+        <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center page-enter">
+          <div className="card p-8 bg-[var(--bg-secondary)] border-[var(--border)] flex flex-col items-center gap-4 max-w-md text-center">
+            <Loader2
+              size={36}
+              className="animate-spin text-[var(--accent-primary)]"
+            />
+            <h2 className="text-xl font-black text-[var(--text-primary)] font-display">
+              Preparing Your Game Report
+            </h2>
+            <p className="text-[var(--text-secondary)] font-medium">
+              Final analytics are being synced. Please wait a moment...
+            </p>
+          </div>
+        </div>
+      </AuthGuard>
+    );
+  }
 
   return (
     <AuthGuard>

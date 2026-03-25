@@ -19,12 +19,24 @@ const resolveApiBaseUrl = () => {
 
 const axiosInstance = axios.create({
   baseURL: resolveApiBaseUrl(),
+  withCredentials: true,
   headers: { "Content-Type": "application/json" },
 });
 
+const getCookieValue = (name) => {
+  if (typeof document === "undefined") return null;
+  const target = `${name}=`;
+  const found = document.cookie
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(target));
+  if (!found) return null;
+  return decodeURIComponent(found.slice(target.length));
+};
+
 axiosInstance.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token") || getCookieValue("token");
     if (token) config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -36,6 +48,7 @@ axiosInstance.interceptors.response.use(
     if (error.response?.status === 401 && typeof window !== "undefined") {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+      document.cookie = "token=; path=/; max-age=0; samesite=lax";
       window.location.href = "/signin";
     }
     return Promise.reject(error);

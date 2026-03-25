@@ -130,6 +130,11 @@ const advancePlayer = async (
   }
 
   setPlayerCurrentQuestionIndex(roomCode, userId, next);
+  if (delayMs <= 0) {
+    emitQuestionToPlayer(io, roomCode, userId);
+    return;
+  }
+
   setTimeout(() => emitQuestionToPlayer(io, roomCode, userId), delayMs);
 };
 
@@ -556,24 +561,56 @@ export const registerSocketHandlers = (io) => {
         const state = getRoomState(roomCode);
         if (!state || state.status !== "active") return;
 
-        const player = findPlayerById(state, userId);
+        let effectiveUserId = userId;
+        let player = findPlayerById(state, userId);
+
+        // Fallback: trust socket identity if client userId is stale/missing.
+        if (!player) {
+          const found = findRoomBySocketId(socket.id);
+          if (found?.roomCode === roomCode) {
+            player = found.player;
+            effectiveUserId = found.player.userId;
+          }
+        }
+
         if (!player || player.finished || player.isDisqualified) return;
 
         // Keep player socket binding fresh even if reconnect happened mid-round.
         if (player.socketId !== socket.id) {
           player.socketId = socket.id;
           player.isConnected = true;
-          clearPlayerDisconnectTimeout(roomCode, userId);
+          clearPlayerDisconnectTimeout(roomCode, effectiveUserId);
         }
 
         const expectedQuestionIndex = player.currentQuestionIndex;
-        if (expectedQuestionIndex !== questionIndex) return;
-        if (hasPlayerAnsweredQuestion(roomCode, userId, questionIndex)) return;
+        const submittedQuestionIndex = Number(questionIndex);
 
-        const question = state.quiz.questions[questionIndex];
+        // If client is out of sync, resend the authoritative current question.
+        if (submittedQuestionIndex !== expectedQuestionIndex) {
+          emitQuestionToPlayer(io, roomCode, effectiveUserId);
+          return;
+        }
+
+        // Duplicate submit for the current question: move forward once.
+        if (
+          hasPlayerAnsweredQuestion(
+            roomCode,
+            effectiveUserId,
+            submittedQuestionIndex,
+          )
+        ) {
+          await advancePlayer(io, roomCode, effectiveUserId, 0);
+          return;
+        }
+
+        const question = state.quiz.questions[submittedQuestionIndex];
         if (!question) return;
 
-        clearPlayerQuestionTimer(roomCode, userId, questionIndex);
+        clearPlayerQuestionTimer(
+          roomCode,
+          effectiveUserId,
+          submittedQuestionIndex,
+        );
 
         const resolvedTimeTaken = Number.isFinite(timeTaken)
           ? Math.max(1, Math.min(timeTaken, state.quiz.timePerQuestion))
@@ -584,9 +621,9 @@ export const registerSocketHandlers = (io) => {
 
         const updatedPlayer = recordAnswer(
           roomCode,
-          userId,
+          effectiveUserId,
           {
-            questionIndex,
+            questionIndex: submittedQuestionIndex,
             selectedAnswer,
             isCorrect,
             timeTaken: resolvedTimeTaken,
@@ -601,11 +638,16 @@ export const registerSocketHandlers = (io) => {
           correctAnswer: question.correctAnswer,
           pointsEarned: points,
           currentScore: updatedPlayer.score,
-          questionIndex,
+          questionIndex: submittedQuestionIndex,
         });
 
         emitLeaderboard(io, roomCode);
-        await advancePlayer(io, roomCode, userId, QUESTION_FEEDBACK_DELAY_MS);
+        await advancePlayer(
+          io,
+          roomCode,
+          effectiveUserId,
+          QUESTION_FEEDBACK_DELAY_MS,
+        );
       },
     );
 

@@ -69,6 +69,7 @@ export default function GamePlayPage() {
   const [startTime, setStartTime] = useState(null);
 
   const autoSubmittedRef = useRef(false);
+  const pendingSubmitRef = useRef(null);
 
   const myLeaderboardEntry = useMemo(
     () => game.leaderboard?.find((p) => p.userId === currentUserId),
@@ -132,6 +133,15 @@ export default function GamePlayPage() {
         selectedAnswer: option,
         timeTaken,
       });
+
+      pendingSubmitRef.current = {
+        roomCode,
+        userId: currentUserId,
+        questionIndex: game.questionIndex,
+        selectedAnswer: option,
+        timeTaken,
+        attempts: 0,
+      };
     },
     [
       currentUserId,
@@ -179,6 +189,39 @@ export default function GamePlayPage() {
     return () => clearTimeout(t);
   }, [answered, meFinished, currentUser, joinRoom, roomCode]);
 
+  useEffect(() => {
+    if (!answered || meFinished || game.status !== "active") return;
+
+    const retry = setInterval(() => {
+      const pending = pendingSubmitRef.current;
+      if (!pending) return;
+
+      // Already moved ahead; stop retrying.
+      if (game.questionIndex > pending.questionIndex) {
+        pendingSubmitRef.current = null;
+        clearInterval(retry);
+        return;
+      }
+
+      // Best-effort recovery: resend current submission a few times.
+      if (pending.attempts >= 4) {
+        clearInterval(retry);
+        return;
+      }
+
+      pending.attempts += 1;
+      submitAnswer({
+        roomCode: pending.roomCode,
+        userId: pending.userId,
+        questionIndex: pending.questionIndex,
+        selectedAnswer: pending.selectedAnswer,
+        timeTaken: pending.timeTaken,
+      });
+    }, 1200);
+
+    return () => clearInterval(retry);
+  }, [answered, meFinished, game.status, game.questionIndex, submitAnswer]);
+
   const getOptionStyle = (option) => {
     if (!answered) {
       return "bg-[var(--bg-secondary)] border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--accent-primary)] hover:bg-[var(--accent-muted)] cursor-pointer group";
@@ -198,6 +241,12 @@ export default function GamePlayPage() {
       router.push(`/room/${roomCode}/results`);
     }
   }, [meFinished, game.status, totalPlayers, roomCode, router]);
+
+  useEffect(() => {
+    if (meFinished || game.status !== "active") {
+      pendingSubmitRef.current = null;
+    }
+  }, [meFinished, game.status]);
 
   useEffect(() => {
     if (!shouldShowWaiting) return;

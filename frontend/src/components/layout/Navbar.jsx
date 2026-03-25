@@ -1,20 +1,27 @@
-'use client'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Brain, LayoutDashboard, PlusCircle, LogOut, Zap, Trophy } from 'lucide-react'
-import { useAuth } from '@/hooks/auth/useAuth'
-import ThemeToggle from '@/components/ui/ThemeToggle'
+"use client";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  Brain,
+  LayoutDashboard,
+  PlusCircle,
+  LogOut,
+  Zap,
+  Trophy,
+} from "lucide-react";
+import { useAuth } from "@/hooks/auth/useAuth";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 
 export default function Navbar() {
-  const { user, logout } = useAuth()
-  const pathname = usePathname()
+  const { user, logout } = useAuth();
+  const pathname = usePathname();
 
   const navLinks = [
-    { href: '/dashboard',   label: 'Dashboard',    icon: LayoutDashboard },
-    { href: '/quiz/create', label: 'Create Quiz',  icon: PlusCircle },
-    { href: '/room/join',   label: 'Join Room',    icon: Zap },
-    { href: '/leaderboard', label: 'Leaderboard',  icon: Trophy },
-  ]
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/quiz/create", label: "Create Quiz", icon: PlusCircle },
+    { href: "/room/join", label: "Join Room", icon: Zap },
+    { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  ];
 
   return (
     <nav className="sticky top-0 z-50 bg-[var(--bg-secondary)] border-b border-[var(--border)] shadow-sm backdrop-blur-md bg-opacity-85">
@@ -38,8 +45,8 @@ export default function Navbar() {
                 href={href}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                   pathname === href
-                    ? 'bg-[var(--accent-muted)] text-[var(--accent-primary)]'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]'
+                    ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
+                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
                 }`}
               >
                 <Icon size={16} />
@@ -52,12 +59,18 @@ export default function Navbar() {
           <div className="flex items-center gap-2 sm:gap-4">
             <ThemeToggle />
             {user && (
-              <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-[var(--border)]">
+              <Link
+                href={user?._id ? `/profile/${user._id}` : "/dashboard"}
+                className="hidden sm:flex items-center gap-2 pl-2 border-l border-[var(--border)] hover:bg-[var(--bg-tertiary)] px-2 py-1 rounded-lg transition-all"
+                title="View profile"
+              >
                 <div className="w-8 h-8 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white text-xs font-bold shadow-sm">
                   {user.name?.[0]?.toUpperCase()}
                 </div>
-                <span className="text-[var(--text-secondary)] text-sm font-medium">{user.name}</span>
-              </div>
+                <span className="text-[var(--text-secondary)] text-sm font-medium hover:text-[var(--text-primary)]">
+                  {user.name}
+                </span>
+              </Link>
             )}
             <button
               onClick={logout}
@@ -70,5 +83,5 @@ export default function Navbar() {
         </div>
       </div>
     </nav>
-  )
+  );
 }

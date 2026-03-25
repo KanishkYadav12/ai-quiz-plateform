@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { io } from "socket.io-client";
 import { roomActions } from "@/redux/slices/room/roomSlice";
@@ -96,20 +96,37 @@ export const useSocket = () => {
   }, [dispatch]);
 
   // ── emit helpers ──────────────────────────────────────────
-  const emit = (event, payload) => {
+  const emit = useCallback((event, payload) => {
     socketRef.current?.emit(event, payload);
-  };
+  }, []);
 
-  const joinDashboard = () => emit("join_dashboard", {});
-  const joinRoom = (roomCode, userId, userName) =>
-    emit("join_room", { roomCode, userId, userName });
-  const markReady = (roomCode, userId, isReady) =>
-    emit("player_ready", { roomCode, userId, isReady });
-  const startGame = (roomCode) => emit("start_game", { roomCode });
-  const submitAnswer = (payload) => emit("submit_answer", payload);
-  const leaveRoom = (roomCode, userId) =>
-    emit("leave_room", { roomCode, userId });
-  const disqualifyPlayer = (payload) => emit("disqualify_player", payload);
+  const joinDashboard = useCallback(() => emit("join_dashboard", {}), [emit]);
+  const joinRoom = useCallback(
+    (roomCode, userId, userName) =>
+      emit("join_room", { roomCode, userId, userName }),
+    [emit],
+  );
+  const markReady = useCallback(
+    (roomCode, userId, isReady) =>
+      emit("player_ready", { roomCode, userId, isReady }),
+    [emit],
+  );
+  const startGame = useCallback(
+    (roomCode) => emit("start_game", { roomCode }),
+    [emit],
+  );
+  const submitAnswer = useCallback(
+    (payload) => emit("submit_answer", payload),
+    [emit],
+  );
+  const leaveRoom = useCallback(
+    (roomCode, userId) => emit("leave_room", { roomCode, userId }),
+    [emit],
+  );
+  const disqualifyPlayer = useCallback(
+    (payload) => emit("disqualify_player", payload),
+    [emit],
+  );
 
   return {
     socket: socketRef.current,
