@@ -56,3 +56,19 @@ export const logoutUser = () => (dispatch) => {
   }
   dispatch(authActions.logout());
 };
+
+export const refreshUserStats = (userId) => async (dispatch) => {
+  dispatch(authActions.refreshUserRequest());
+  try {
+    const data = await authService.getMe();
+    if (data.data.user) {
+      // Update localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem("user", JSON.stringify(data.data.user));
+      }
+      dispatch(authActions.refreshUserSuccess(data.data.user));
+    }
+  } catch (err) {
+    dispatch(authActions.refreshUserFailure());
+  }
+};

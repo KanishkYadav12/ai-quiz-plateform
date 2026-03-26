@@ -1,7 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useDispatch, useSelector } from "react-redux";
 import {
   PlusCircle,
   BookOpen,
@@ -21,6 +22,11 @@ import {
   Trophy,
   Zap,
   Star,
+  Coins,
+  Gamepad2,
+  Award,
+  Medal,
+  Flame,
 } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import AuthGuard from "@/components/layout/AuthGuard";
@@ -28,6 +34,15 @@ import { useAuth } from "@/hooks/auth/useAuth";
 import { useQuiz } from "@/hooks/quiz/useQuiz";
 import { useRoom } from "@/hooks/room/useRoom";
 import { useSocket } from "@/hooks/socket/useSocket";
+import {
+  fetchCoinsLeaderboard,
+  fetchRatioLeaderboard,
+} from "@/redux/actions/user/userAction";
+import { refreshUserStats } from "@/redux/actions/auth/authAction";
+import {
+  selectCoinsLeaderboard,
+  selectRatioLeaderboard,
+} from "@/redux/slices/user/userSlice";
 
 function PublicQuizCard({ quiz }) {
   const diffStyles = {
@@ -311,8 +326,12 @@ function QuizCard({
 }
 
 export default function DashboardPage() {
+  const dispatch = useDispatch();
   const { user } = useAuth();
   const router = useRouter();
+  const coinsLeaderboard = useSelector(selectCoinsLeaderboard);
+  const ratioLeaderboard = useSelector(selectRatioLeaderboard);
+
   const {
     quizzes,
     publicQuizzes,
@@ -336,17 +355,54 @@ export default function DashboardPage() {
   } = useRoom();
   const { isConnected, joinDashboard } = useSocket();
 
+  const [userCoinsRank, setUserCoinsRank] = useState(null);
+  const [userRatioRank, setUserRatioRank] = useState(null);
+
+  // Helper function to find user's rank in leaderboard
+  const findUserRank = (leaderboard, userId) => {
+    if (!leaderboard?.data) return null;
+    const rank = leaderboard.data.findIndex(
+      (user) => user._id?.toString() === userId?.toString(),
+    );
+    return rank >= 0 ? rank + 1 : null;
+  };
+
   useEffect(() => {
     loadMyQuizzes();
     loadPublicQuizzes();
     loadLiveRooms();
+    dispatch(fetchCoinsLeaderboard());
+    dispatch(fetchRatioLeaderboard());
+    dispatch(refreshUserStats(user?._id));
   }, []);
+
+  useEffect(() => {
+    if (user?._id && coinsLeaderboard.data) {
+      setUserCoinsRank(findUserRank(coinsLeaderboard, user._id));
+    }
+  }, [coinsLeaderboard.data, user?._id]);
+
+  useEffect(() => {
+    if (user?._id && ratioLeaderboard.data) {
+      setUserRatioRank(findUserRank(ratioLeaderboard, user._id));
+    }
+  }, [ratioLeaderboard.data, user?._id]);
 
   useEffect(() => {
     if (isConnected) {
       joinDashboard();
     }
   }, [isConnected]);
+
+  // Refresh leaderboards periodically (every 30 seconds)
+  useEffect(() => {
+    const leaderboardRefreshInterval = setInterval(() => {
+      dispatch(fetchCoinsLeaderboard());
+      dispatch(fetchRatioLeaderboard());
+    }, 30000);
+
+    return () => clearInterval(leaderboardRefreshInterval);
+  }, [dispatch]);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -513,32 +569,83 @@ export default function DashboardPage() {
             {/* Right Sidebar — Stats & Public Library */}
             <div className="order-1 space-y-10 xl:order-2 xl:col-span-1">
               {/* Profile Stats */}
-              <div className="card p-6 bg-[var(--accent-primary)] border-none relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-4 transition-transform opacity-10 group-hover:scale-110">
-                  <Trophy size={80} className="text-white" />
+              <div className="relative p-6 overflow-hidden border card border-[#D7DAF6] bg-[#F4F5FF] shadow-[0_10px_24px_rgba(92,99,217,0.12)] group dark:border-none dark:shadow-2xl dark:bg-gradient-to-br dark:from-blue-500 dark:via-indigo-600 dark:to-purple-700">
+                <div className="absolute top-0 right-0 p-4 transition-transform opacity-20 group-hover:scale-110 dark:opacity-30">
+                  <Trophy
+                    size={80}
+                    className="text-[#CBD0FF] dark:text-white"
+                  />
                 </div>
-                <h3 className="text-white/80 font-bold uppercase tracking-wider text-[10px] mb-6">
+                <h3 className="text-[#5C63D9] dark:text-white font-bold uppercase tracking-wider text-[10px] mb-6">
                   Global Ranking
                 </h3>
-                <div className="mb-2 text-4xl font-black text-white font-display">
-                  {user?.totalCoins || 0}{" "}
-                  <span className="text-lg font-bold text-white/60">Coins</span>
+                <div className="flex items-center gap-3 mb-6 text-4xl font-black text-[#1E2060] dark:text-white font-display">
+                  <Coins
+                    size={32}
+                    className="text-[#E8DFAE] dark:text-yellow-300"
+                  />
+                  <div>
+                    {user?.totalCoins || 0}{" "}
+                    <span className="text-lg font-bold text-[#D27900] dark:text-yellow-100">
+                      Coins
+                    </span>
+                  </div>
                 </div>
-                <div className="flex gap-4 mt-8">
-                  <div className="flex-1 p-3 bg-white/10 backdrop-blur-md rounded-xl">
-                    <div className="text-lg font-black text-white">
-                      {quizzes.length}
-                    </div>
-                    <div className="text-white/60 text-[10px] font-bold uppercase">
-                      Quizzes
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-start gap-2 p-3 transition-colors border bg-white rounded-[26px] border-[#C9CCF2] hover:bg-[#F8F9FF] dark:shadow-lg dark:bg-white/20 dark:backdrop-blur-lg dark:rounded-xl dark:border-white/40 dark:hover:bg-white/30">
+                    <Gamepad2
+                      size={18}
+                      className="text-[#63D7FF] mt-0.5 flex-shrink-0 dark:text-cyan-200 dark:drop-shadow-lg"
+                    />
+                    <div className="flex-1">
+                      <div className="text-lg font-black text-[#1E2060] dark:text-white dark:drop-shadow-md">
+                        {user?.gamesPlayed || 0}
+                      </div>
+                      <div className="text-[#5C63D9] dark:text-white text-[10px] font-bold uppercase dark:drop-shadow-sm">
+                        Played
+                      </div>
                     </div>
                   </div>
-                  <div className="flex-1 p-3 bg-white/10 backdrop-blur-md rounded-xl">
-                    <div className="text-lg font-black text-white">
-                      {quizzes.filter((q) => q.isPublic).length}
+                  <div className="flex items-start gap-2 p-3 transition-colors border bg-white rounded-[26px] border-[#C9CCF2] hover:bg-[#F8F9FF] dark:shadow-lg dark:bg-white/20 dark:backdrop-blur-lg dark:rounded-xl dark:border-white/40 dark:hover:bg-white/30">
+                    <Trophy
+                      size={18}
+                      className="text-[#F6CC49] mt-0.5 flex-shrink-0 dark:text-yellow-200 dark:drop-shadow-lg"
+                    />
+                    <div className="flex-1">
+                      <div className="text-lg font-black text-[#1E2060] dark:text-white dark:drop-shadow-md">
+                        {user?.gamesWon || 0}
+                      </div>
+                      <div className="text-[#5C63D9] dark:text-white text-[10px] font-bold uppercase dark:drop-shadow-sm">
+                        Won
+                      </div>
                     </div>
-                    <div className="text-white/60 text-[10px] font-bold uppercase">
-                      Public
+                  </div>
+                  <div className="flex items-start gap-2 p-3 transition-colors border bg-white rounded-[26px] border-[#C9CCF2] hover:bg-[#F8F9FF] dark:shadow-lg dark:bg-white/20 dark:backdrop-blur-lg dark:rounded-xl dark:border-white/40 dark:hover:bg-white/30">
+                    <Medal
+                      size={18}
+                      className="text-[#E07A00] mt-0.5 flex-shrink-0 dark:text-amber-200 dark:drop-shadow-lg"
+                    />
+                    <div className="flex-1">
+                      <div className="text-lg font-black text-[#1E2060] dark:text-white dark:drop-shadow-md">
+                        {userCoinsRank ? `#${userCoinsRank}` : "—"}
+                      </div>
+                      <div className="text-[#5C63D9] dark:text-white text-[10px] font-bold uppercase dark:drop-shadow-sm">
+                        Coins Rank
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 p-3 transition-colors border bg-white rounded-[26px] border-[#C9CCF2] hover:bg-[#F8F9FF] dark:shadow-lg dark:bg-white/20 dark:backdrop-blur-lg dark:rounded-xl dark:border-white/40 dark:hover:bg-white/30">
+                    <Flame
+                      size={18}
+                      className="text-[#FF8E8E] mt-0.5 flex-shrink-0 dark:text-red-200 dark:drop-shadow-lg"
+                    />
+                    <div className="flex-1">
+                      <div className="text-lg font-black text-[#1E2060] dark:text-white dark:drop-shadow-md">
+                        {userRatioRank ? `#${userRatioRank}` : "—"}
+                      </div>
+                      <div className="text-[#5C63D9] dark:text-white text-[10px] font-bold uppercase dark:drop-shadow-sm">
+                        Ratio Rank
+                      </div>
                     </div>
                   </div>
                 </div>

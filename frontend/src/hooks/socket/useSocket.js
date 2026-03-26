@@ -1,8 +1,10 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { io } from "socket.io-client";
 import { roomActions } from "@/redux/slices/room/roomSlice";
+import { refreshUserStats } from "@/redux/actions/auth/authAction";
+import { selectCurrentUser } from "@/redux/slices/auth/authSlice";
 
 const PROD_BACKEND = "https://ai-quiz-plateform.onrender.com";
 
@@ -23,6 +25,7 @@ const resolveSocketUrl = () => {
 
 export const useSocket = () => {
   const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
   const socketRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -70,7 +73,13 @@ export const useSocket = () => {
     s.on("player_finished", (payload) =>
       dispatch(roomActions.playerFinished(payload)),
     );
-    s.on("game_over", (payload) => dispatch(roomActions.gameOver(payload)));
+    s.on("game_over", (payload) => {
+      dispatch(roomActions.gameOver(payload));
+      // Refresh user stats and leaderboards after game completion
+      if (currentUser?._id) {
+        dispatch(refreshUserStats(currentUser._id));
+      }
+    });
     s.on("room_status_update", (payload) =>
       dispatch(roomActions.updateLiveRoom(payload)),
     );

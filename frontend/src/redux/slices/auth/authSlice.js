@@ -68,6 +68,18 @@ const authSlice = createSlice({
       state.token = payload.token;
       state.isAuthenticated = true;
     },
+
+    // ── refresh user stats ────────────────────────────────
+    refreshUserRequest: (state) => {
+      state.refreshing = true;
+    },
+    refreshUserSuccess: (state, { payload }) => {
+      state.user = payload;
+      state.refreshing = false;
+    },
+    refreshUserFailure: (state) => {
+      state.refreshing = false;
+    },
   },
 });
 
