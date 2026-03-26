@@ -35,6 +35,23 @@ const quizSchema = new mongoose.Schema(
     timePerQuestion: { type: Number, default: 30 }, // seconds
     questions: { type: [questionSchema], required: true },
     isPublic: { type: Boolean, default: false },
+    status: {
+      type: String,
+      enum: ["waiting", "active", "completed", "expired"],
+      default: "waiting",
+    },
+    creationMode: {
+      type: String,
+      enum: ["play_now", "schedule_later"],
+      default: "play_now",
+    },
+    currentRoomId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Room",
+      default: null,
+    },
+    completedAt: { type: Date, default: null },
+    expiredAt: { type: Date, default: null },
 
     // Analytics (updated after every game_over)
     timesPlayed: { type: Number, default: 0 },
@@ -70,5 +87,6 @@ quizSchema.virtual("ratingInfo").get(function () {
 
 // Index for fetching quizzes by owner efficiently
 quizSchema.index({ createdBy: 1, createdAt: -1 });
+quizSchema.index({ createdBy: 1, status: 1, createdAt: -1 });
 
 export const Quiz = mongoose.model("Quiz", quizSchema);

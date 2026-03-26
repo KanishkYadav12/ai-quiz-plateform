@@ -25,7 +25,7 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 bg-[var(--bg-secondary)] border-b border-[var(--border)] shadow-sm backdrop-blur-md bg-opacity-85">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center gap-2 group">
@@ -38,7 +38,7 @@ export default function Navbar() {
           </Link>
 
           {/* Nav links */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="items-center hidden gap-1 md:flex">
             {navLinks.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}

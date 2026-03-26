@@ -2,6 +2,8 @@ import { axiosRequest } from "@/lib/axiosClient";
 
 export const quizService = {
   generate: (payload) => axiosRequest("POST", "/quiz/generate", payload),
+  clone: (quizId, creationMode = "play_now") =>
+    axiosRequest("POST", `/quiz/${quizId}/clone`, { creationMode }),
   getMyQuizzes: () => axiosRequest("GET", "/quiz/my-quizzes"),
   getPublic: () => axiosRequest("GET", "/quiz/public"),
   getById: (quizId) => axiosRequest("GET", `/quiz/${quizId}`),

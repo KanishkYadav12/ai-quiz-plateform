@@ -2,6 +2,7 @@ import { asyncHandler } from "../middleware/asyncHandler.js";
 import {
   generateQuizSchema,
   publishSchema,
+  cloneQuizSchema,
 } from "../validators/quiz.validator.js";
 import {
   createQuizWithAI,
@@ -12,12 +13,13 @@ import {
   getPublicQuizzes,
   getQuizAnalytics,
   rateQuiz,
+  cloneQuizById,
 } from "../services/quiz.service.js";
 
 export const generateQuiz = asyncHandler(async (req, res) => {
   const body = generateQuizSchema.parse(req.body);
-  const quiz = await createQuizWithAI(body, req.user._id);
-  res.status(201).json({ status: "success", data: { quiz } });
+  const { quiz, room } = await createQuizWithAI(body, req.user._id);
+  res.status(201).json({ status: "success", data: { quiz, room } });
 });
 
 export const getMyQuizzes = asyncHandler(async (req, res) => {
@@ -32,12 +34,10 @@ export const getQuiz = asyncHandler(async (req, res) => {
 
 export const deleteQuiz = asyncHandler(async (req, res) => {
   await deleteQuizById(req.params.quizId, req.user._id);
-  res
-    .status(200)
-    .json({
-      status: "success",
-      data: { message: "Quiz deleted successfully." },
-    });
+  res.status(200).json({
+    status: "success",
+    data: { message: "Quiz deleted successfully." },
+  });
 });
 
 export const publishQuiz = asyncHandler(async (req, res) => {
@@ -64,4 +64,14 @@ export const rateQuizController = asyncHandler(async (req, res) => {
   const { rating } = req.body;
   const quiz = await rateQuiz(req.params.quizId, req.user._id, rating);
   res.status(200).json({ status: "success", data: { quiz } });
+});
+
+export const cloneQuizController = asyncHandler(async (req, res) => {
+  const { creationMode } = cloneQuizSchema.parse(req.body || {});
+  const result = await cloneQuizById(
+    req.params.quizId,
+    req.user._id,
+    creationMode,
+  );
+  res.status(201).json({ status: "success", data: result });
 });

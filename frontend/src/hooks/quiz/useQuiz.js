@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   generateQuiz,
+  cloneQuiz,
   fetchMyQuizzes,
   fetchQuizById,
   deleteQuiz,
@@ -19,6 +20,7 @@ import {
   selectQuizDetails,
   selectQuizAnalytics,
   selectQuizCreate,
+  selectQuizClone,
   selectQuizDelete,
   selectQuizPublish,
   selectQuizRate,
@@ -34,11 +36,13 @@ export const useQuiz = () => {
   const detailsOp = useSelector(selectQuizDetails);
   const analyticsOp = useSelector(selectQuizAnalytics);
   const createOp = useSelector(selectQuizCreate);
+  const cloneOp = useSelector(selectQuizClone);
   const deleteOp = useSelector(selectQuizDelete);
   const publishOp = useSelector(selectQuizPublish);
   const rateOp = useSelector(selectQuizRate);
 
   const [createLoading, setCreateLoading] = useState(false);
+  const [cloneLoading, setCloneLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   // ── create / generate effect ──────────────────────────────
@@ -46,10 +50,15 @@ export const useQuiz = () => {
     if (createOp.status === "pending") setCreateLoading(true);
     if (createOp.status === "success") {
       setCreateLoading(false);
-      const quizId = createOp.data?._id;
-      if (quizId) {
+      const quiz = createOp.data?.quiz;
+      const room = createOp.data?.room;
+      if (quiz?._id) {
         dispatch(quizActions.clearCreate());
-        router.replace(`/quiz/${quizId}`);
+        if (quiz.creationMode === "play_now" && room?.roomCode) {
+          router.replace(`/room/${room.roomCode}/lobby`);
+          return;
+        }
+        router.replace(`/dashboard`);
         return;
       }
       toast.error("Quiz created, but redirect target was missing.");
@@ -61,6 +70,30 @@ export const useQuiz = () => {
       dispatch(quizActions.clearCreate());
     }
   }, [createOp.status, createOp.data, createOp.error, dispatch, router]);
+
+  // ── clone effect ───────────────────────────────────────────
+  useEffect(() => {
+    if (cloneOp.status === "pending") setCloneLoading(true);
+    if (cloneOp.status === "success") {
+      setCloneLoading(false);
+      const quiz = cloneOp.data?.quiz;
+      const room = cloneOp.data?.room;
+      toast.success("Quiz cloned successfully.");
+      dispatch(quizActions.clearClone());
+
+      if (quiz?.creationMode === "play_now" && room?.roomCode) {
+        router.push(`/room/${room.roomCode}/lobby`);
+        return;
+      }
+
+      router.push(`/dashboard`);
+    }
+    if (cloneOp.status === "failed") {
+      setCloneLoading(false);
+      toast.error(cloneOp.error || "Failed to clone quiz");
+      dispatch(quizActions.clearClone());
+    }
+  }, [cloneOp.status, cloneOp.data, cloneOp.error, dispatch, router]);
 
   // ── delete effect ─────────────────────────────────────────
   useEffect(() => {
@@ -114,12 +147,15 @@ export const useQuiz = () => {
     detailLoading: detailsOp.status === "pending",
     analyticsLoading: analyticsOp.status === "pending",
     createLoading,
+    cloneLoading,
     deleteLoading,
     listError: listOp.error,
     detailError: detailsOp.error,
 
     // actions
     generate: (payload) => dispatch(generateQuiz(payload)),
+    cloneFromQuiz: (quizId, creationMode) =>
+      dispatch(cloneQuiz(quizId, creationMode)),
     loadMyQuizzes: () => dispatch(fetchMyQuizzes()),
     loadPublicQuizzes: () => dispatch(fetchPublicQuizzes()),
     loadQuiz: (quizId) => dispatch(fetchQuizById(quizId)),

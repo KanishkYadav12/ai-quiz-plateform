@@ -15,6 +15,7 @@ import roomRoutes from "./routes/room.routes.js";
 import leaderboardRoutes from "./routes/leaderboard.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import { registerSocketHandlers } from "./socket/socket.handler.js";
+import { expireStaleWaitingRooms } from "./services/room.service.js";
 
 const PORT = getEnv("PORT", "8000");
 const NODE_ENV = getEnv("NODE_ENV", "development");
@@ -103,6 +104,14 @@ const bootstrap = async () => {
     });
 
     registerSocketHandlers(io);
+
+    setInterval(async () => {
+      try {
+        await expireStaleWaitingRooms();
+      } catch (err) {
+        console.error("[Lifecycle] Expiry sweep failed:", err.message);
+      }
+    }, 60 * 1000);
 
     httpServer.listen(PORT, () => {
       console.log(`🚀 Server running → http://localhost:${PORT}`);

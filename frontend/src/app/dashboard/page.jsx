@@ -5,10 +5,12 @@ import Link from "next/link";
 import {
   PlusCircle,
   BookOpen,
+  Copy,
   Trash2,
   Play,
   Globe,
   Lock,
+  Clock3,
   Loader2,
   Brain,
   User,
@@ -27,7 +29,7 @@ import { useQuiz } from "@/hooks/quiz/useQuiz";
 import { useRoom } from "@/hooks/room/useRoom";
 import { useSocket } from "@/hooks/socket/useSocket";
 
-function PublicQuizCard({ quiz, onPlay }) {
+function PublicQuizCard({ quiz }) {
   const diffStyles = {
     easy: "bg-[var(--success-muted)] text-[var(--success)] border-[var(--success)]",
     medium:
@@ -97,13 +99,13 @@ function PublicQuizCard({ quiz, onPlay }) {
         </span>
       </div>
 
-      <button
-        onClick={() => onPlay(quiz._id)}
+      <Link
+        href={`/quiz/${quiz._id}`}
         className="btn-primary w-full flex items-center justify-center gap-2 py-2.5"
       >
         <Sparkles size={14} fill="currentColor" />
-        Play Now
-      </button>
+        View Quiz
+      </Link>
     </div>
   );
 }
@@ -115,6 +117,7 @@ function LiveRoomCard({ room, onJoin }) {
     hard: "text-[var(--error)] bg-[var(--error-muted)]",
   };
   const isWaiting = room.status === "waiting";
+  const isLockedWaiting = isWaiting && !room.joinable;
 
   return (
     <div className="card p-5 bg-[var(--bg-secondary)] border-[var(--border)] flex flex-col h-full">
@@ -133,7 +136,7 @@ function LiveRoomCard({ room, onJoin }) {
           <div
             className={`w-1.5 h-1.5 rounded-full ${isWaiting ? "bg-[var(--success)]" : "bg-[var(--error)] live-dot"}`}
           />
-          {room.status}
+          {isLockedWaiting ? "scheduled" : room.status}
         </div>
       </div>
 
@@ -149,13 +152,21 @@ function LiveRoomCard({ room, onJoin }) {
       </div>
 
       <div className="mt-auto">
-        {isWaiting ? (
+        {isWaiting && room.joinable ? (
           <button
             onClick={() => onJoin(room.roomCode)}
             className="flex items-center justify-center w-full gap-2 py-2 btn-primary"
           >
             <Play size={14} fill="currentColor" />
             Join
+          </button>
+        ) : isLockedWaiting ? (
+          <button
+            disabled
+            className="w-full flex items-center justify-center gap-2 bg-[var(--bg-tertiary)] text-[var(--text-disabled)] text-xs font-bold py-2 rounded-xl cursor-not-allowed border border-[var(--border)]"
+          >
+            <Lock size={14} />
+            Scheduled
           </button>
         ) : (
           <button
@@ -170,7 +181,24 @@ function LiveRoomCard({ room, onJoin }) {
   );
 }
 
-function QuizCard({ quiz, onDelete, onPlay, deleteLoading }) {
+const statusStyles = {
+  waiting: "bg-[var(--warning-muted)] text-[var(--warning)]",
+  active: "bg-[var(--accent-muted)] text-[var(--accent-primary)]",
+  completed: "bg-[var(--success-muted)] text-[var(--success)]",
+  expired: "bg-[var(--error-muted)] text-[var(--error)]",
+};
+
+function QuizCard({
+  quiz,
+  onDelete,
+  onPlay,
+  onActivate,
+  onClone,
+  onOpenRoom,
+  deleteLoading,
+  activateLoading,
+  cloneLoading,
+}) {
   const diffStyles = {
     easy: "bg-[var(--success-muted)] text-[var(--success)]",
     medium: "bg-[var(--warning-muted)] text-[var(--warning)]",
@@ -206,6 +234,11 @@ function QuizCard({ quiz, onDelete, onPlay, deleteLoading }) {
         >
           {quiz.difficulty}
         </span>
+        <span
+          className={`text-xs font-bold px-3 py-1 rounded-full uppercase ${statusStyles[quiz.status] || statusStyles.waiting}`}
+        >
+          {quiz.status}
+        </span>
         <span className="text-xs font-bold text-[var(--text-secondary)] bg-[var(--bg-tertiary)] px-3 py-1 rounded-full border border-[var(--border)]">
           {quiz.totalQuestions} questions
         </span>
@@ -219,16 +252,55 @@ function QuizCard({ quiz, onDelete, onPlay, deleteLoading }) {
           <BarChart3 size={16} className="text-[var(--accent-primary)]" />
           Analytics
         </Link>
-        <button
-          onClick={() => onPlay(quiz._id)}
-          className="flex-1 flex items-center justify-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white text-sm font-bold py-2.5 rounded-xl transition-all shadow-sm"
-        >
-          <Play size={16} fill="currentColor" />
-          Host
-        </button>
+
+        {quiz.status === "completed" || quiz.status === "expired" ? (
+          <button
+            onClick={() => onClone(quiz._id)}
+            disabled={cloneLoading}
+            className="flex-1 flex items-center justify-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white text-sm font-bold py-2.5 rounded-xl transition-all shadow-sm disabled:opacity-50"
+          >
+            <Copy size={16} />
+            Clone
+          </button>
+        ) : quiz.status === "active" && quiz.currentRoom?.roomCode ? (
+          <button
+            onClick={() => onOpenRoom(quiz.currentRoom.roomCode)}
+            className="flex-1 flex items-center justify-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white text-sm font-bold py-2.5 rounded-xl transition-all shadow-sm"
+          >
+            <Play size={16} fill="currentColor" />
+            Rejoin
+          </button>
+        ) : quiz.status === "waiting" &&
+          quiz.currentRoom?.joinable === false ? (
+          <button
+            onClick={() => onActivate(quiz.currentRoom.roomCode)}
+            disabled={activateLoading}
+            className="flex-1 flex items-center justify-center gap-2 bg-[var(--warning)] hover:opacity-90 text-white text-sm font-bold py-2.5 rounded-xl transition-all disabled:opacity-50"
+          >
+            <Clock3 size={16} />
+            Activate
+          </button>
+        ) : quiz.currentRoom?.roomCode ? (
+          <button
+            onClick={() => onOpenRoom(quiz.currentRoom.roomCode)}
+            className="flex-1 flex items-center justify-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white text-sm font-bold py-2.5 rounded-xl transition-all shadow-sm"
+          >
+            <Play size={16} fill="currentColor" />
+            Lobby
+          </button>
+        ) : (
+          <button
+            onClick={() => onPlay(quiz._id)}
+            className="flex-1 flex items-center justify-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white text-sm font-bold py-2.5 rounded-xl transition-all shadow-sm"
+          >
+            <Play size={16} fill="currentColor" />
+            Host
+          </button>
+        )}
+
         <button
           onClick={() => onDelete(quiz._id)}
-          disabled={deleteLoading}
+          disabled={deleteLoading || quiz.status === "active"}
           className="p-2.5 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--error)] hover:bg-[var(--error-muted)] hover:border-[var(--error)] transition-all disabled:opacity-50"
         >
           <Trash2 size={18} />
@@ -246,17 +318,21 @@ export default function DashboardPage() {
     publicQuizzes,
     listLoading,
     publicListLoading,
+    cloneLoading,
     deleteLoading,
     loadMyQuizzes,
     loadPublicQuizzes,
     removeQuiz,
+    cloneFromQuiz,
   } = useQuiz();
   const {
     liveRooms,
     liveRoomsLoading,
     loadLiveRooms,
     makeRoom,
+    activateRoom,
     createLoading,
+    activateLoading,
   } = useRoom();
   const { isConnected, joinDashboard } = useSocket();
 
@@ -282,6 +358,10 @@ export default function DashboardPage() {
 
   const handleJoinRoom = (roomCode) => {
     router.push(`/room/${roomCode}/lobby`);
+  };
+
+  const handleCloneQuiz = (quizId) => {
+    cloneFromQuiz(quizId, "play_now");
   };
 
   return (
@@ -417,7 +497,12 @@ export default function DashboardPage() {
                         quiz={quiz}
                         onDelete={removeQuiz}
                         onPlay={(id) => makeRoom({ quizId: id })}
+                        onActivate={(roomCode) => activateRoom(roomCode)}
+                        onClone={handleCloneQuiz}
+                        onOpenRoom={handleJoinRoom}
                         deleteLoading={deleteLoading}
+                        activateLoading={activateLoading}
+                        cloneLoading={cloneLoading}
                       />
                     ))}
                   </div>
@@ -482,11 +567,7 @@ export default function DashboardPage() {
                 ) : (
                   <div className="flex flex-col gap-4">
                     {publicQuizzes.slice(0, 5).map((quiz) => (
-                      <PublicQuizCard
-                        key={quiz._id}
-                        quiz={quiz}
-                        onPlay={(id) => makeRoom({ quizId: id })}
-                      />
+                      <PublicQuizCard key={quiz._id} quiz={quiz} />
                     ))}
                     {publicQuizzes.length > 5 && (
                       <button className="text-sm font-bold text-[var(--accent-primary)] hover:underline py-2 text-center">

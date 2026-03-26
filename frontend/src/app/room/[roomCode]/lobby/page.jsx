@@ -49,14 +49,22 @@ export default function LobbyPage() {
   const myPlayer = game.players.find((p) => p.userId === currentUser?._id);
   const isActualHost = game.hostId === currentUser?._id;
   const nonHostPlayers = game.players.filter((p) => p.userId !== game.hostId);
+  const totalPlayers = game.totalPlayers || game.players.length;
+  const hasMinimumPlayers = totalPlayers >= 2;
   const allReady =
-    nonHostPlayers.length === 0 || nonHostPlayers.every((p) => p.isReady);
+    hasMinimumPlayers &&
+    nonHostPlayers.length > 0 &&
+    nonHostPlayers.every((p) => p.isReady);
 
   const handleReady = () => {
     markReady(roomCode, currentUser._id, !myPlayer?.isReady);
   };
 
   const handleStart = () => {
+    if (!hasMinimumPlayers) {
+      toast.error("At least 2 players are required to start the quiz.");
+      return;
+    }
     if (!allReady) {
       toast.error("Wait for all players to be ready!");
       return;
@@ -134,7 +142,7 @@ export default function LobbyPage() {
                         Lobby Participants
                       </h2>
                       <p className="text-[10px] font-black text-[var(--text-disabled)] uppercase tracking-wider">
-                        {game.players.length} Players connected
+                        {totalPlayers} Players connected
                       </p>
                     </div>
                   </div>
@@ -226,15 +234,15 @@ export default function LobbyPage() {
                       <Play size={20} fill="currentColor" />
                       {allReady
                         ? "Start Competition"
-                        : `Waiting for Players (${game.players.filter((p) => p.isReady).length}/${game.players.length - 1} Ready)`}
+                        : `Waiting for Players (${game.players.filter((p) => p.isReady).length}/${Math.max(totalPlayers - 1, 0)} Ready)`}
                     </button>
                   )}
-                  {isActualHost && !allReady && game.players.length > 1 && (
+                  {isActualHost && !allReady && totalPlayers > 1 && (
                     <p className="text-center text-[10px] font-bold text-[var(--text-disabled)] uppercase tracking-widest mt-4">
                       All participants must mark ready to begin
                     </p>
                   )}
-                  {isActualHost && game.players.length <= 1 && (
+                  {isActualHost && totalPlayers <= 1 && (
                     <p className="text-center text-[10px] font-bold text-[var(--text-disabled)] uppercase tracking-widest mt-4">
                       Invite players to join the competition
                     </p>

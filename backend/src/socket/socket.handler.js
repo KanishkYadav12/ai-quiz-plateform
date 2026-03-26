@@ -24,6 +24,7 @@ import {
 import {
   getRoomByCode,
   saveFinalScoresToRoom,
+  touchRoomActivity,
   updateRoomStatus,
 } from "../services/room.service.js";
 import { processGameRewards } from "../services/coin.service.js";
@@ -39,7 +40,7 @@ const sanitiseQuestion = (question) => ({
 });
 
 const publicPlayer = (p) => ({
-  userId: p.userId,
+  userId: p.userId?.toString?.() || p.userId,
   name: p.name,
   score: p.score,
   isReady: p.isReady,
@@ -54,6 +55,14 @@ const publicPlayer = (p) => ({
 const emitLeaderboard = (io, roomCode) => {
   io.to(roomCode).emit("leaderboard_update", {
     leaderboard: getLeaderboard(roomCode),
+  });
+};
+
+const emitPlayersSnapshot = (io, roomCode) => {
+  const players = getAllPlayers(roomCode).map(publicPlayer);
+  io.to(roomCode).emit("players_sync", {
+    players,
+    totalPlayers: players.length,
   });
 };
 
@@ -423,14 +432,45 @@ export const registerSocketHandlers = (io) => {
 
         const isHost = roomDoc.hostId._id.toString() === userId?.toString();
 
+        if (roomDoc.status === "expired") {
+          socket.emit("error", { message: "This room has expired." });
+          return;
+        }
+
+        if (roomDoc.status === "completed") {
+          socket.emit("error", { message: "This room is already completed." });
+          return;
+        }
+
+        if (roomDoc.status === "waiting" && !roomDoc.joinable && !isHost) {
+          socket.emit("error", {
+            message: "This room is scheduled and not active yet.",
+          });
+          return;
+        }
+
         const state = createRoomState(
           roomCode,
           roomDoc.quizId,
           roomDoc.hostId._id.toString(),
           isHost ? socket.id : undefined,
+          roomDoc.status,
         );
 
+        // Ensure host is always represented in the room roster so total player
+        // count remains consistent across all clients.
+        if (!findPlayerById(state, state.hostId)) {
+          upsertPlayer(roomCode, {
+            userId: state.hostId,
+            name: roomDoc.hostId.name,
+            socketId: null,
+            isConnected: false,
+          });
+        }
+
         socket.join(roomCode);
+
+        await touchRoomActivity(roomCode);
 
         const player = upsertPlayer(roomCode, {
           userId,
@@ -442,10 +482,12 @@ export const registerSocketHandlers = (io) => {
         socket
           .to(roomCode)
           .emit("player_joined", { player: publicPlayer(player) });
+        emitPlayersSnapshot(io, roomCode);
 
         io.to("dashboard").emit("room_status_update", {
           roomCode,
           status: state.status,
+          joinable: roomDoc.joinable,
           playerCount: state.players.size,
           hostName: roomDoc.hostId.name,
           quizTitle: state.quiz.title,
@@ -472,6 +514,7 @@ export const registerSocketHandlers = (io) => {
             timePerQuestion: state.quiz.timePerQuestion,
           },
           players: getAllPlayers(roomCode).map(publicPlayer),
+          totalPlayers: getAllPlayers(roomCode).length,
           leaderboard: getLeaderboard(roomCode),
           currentQuestion,
           playerProgress: {
@@ -496,16 +539,30 @@ export const registerSocketHandlers = (io) => {
       }
     });
 
-    socket.on("player_ready", ({ roomCode, userId, isReady }) => {
+    socket.on("player_ready", async ({ roomCode, userId, isReady }) => {
       const player = setPlayerReady(roomCode, userId, isReady);
       if (!player) return;
+      await touchRoomActivity(roomCode);
       io.to(roomCode).emit("player_ready", { userId, isReady });
     });
 
-    socket.on("start_game", ({ roomCode }) => {
+    socket.on("start_game", async ({ roomCode }) => {
       const state = getRoomState(roomCode);
       if (!state) {
         socket.emit("error", { message: "Room not found." });
+        return;
+      }
+
+      try {
+        const roomDoc = await getRoomByCode(roomCode);
+        if (roomDoc.status === "waiting" && !roomDoc.joinable) {
+          socket.emit("error", {
+            message: "Activate this scheduled room before starting.",
+          });
+          return;
+        }
+      } catch (err) {
+        socket.emit("error", { message: err.message || "Room not found." });
         return;
       }
 
@@ -522,7 +579,26 @@ export const registerSocketHandlers = (io) => {
         }
       }
 
+      const connectedPlayers = Array.from(state.players.values()).filter(
+        (p) => p.isConnected,
+      );
+      if (connectedPlayers.length < 2) {
+        socket.emit("error", {
+          message: "At least 2 players are required to start the quiz.",
+        });
+        return;
+      }
+
       state.status = "active";
+
+      try {
+        await updateRoomStatus(roomCode, "active");
+      } catch (err) {
+        socket.emit("error", {
+          message: err.message || "Failed to start game.",
+        });
+        return;
+      }
 
       for (const player of state.players.values()) {
         player.currentQuestionIndex = 0;
@@ -536,6 +612,7 @@ export const registerSocketHandlers = (io) => {
       io.to("dashboard").emit("room_status_update", {
         roomCode,
         status: "active",
+        joinable: true,
       });
 
       io.to(roomCode).emit("game_started", {
@@ -655,10 +732,12 @@ export const registerSocketHandlers = (io) => {
       await disqualifyPlayer(io, roomCode, userId, reason);
     });
 
-    socket.on("leave_room", ({ roomCode, userId }) => {
+    socket.on("leave_room", async ({ roomCode, userId }) => {
       removePlayer(roomCode, userId);
       socket.leave(roomCode);
+      await touchRoomActivity(roomCode);
       io.to(roomCode).emit("player_left", { userId });
+      emitPlayersSnapshot(io, roomCode);
 
       const state = getRoomState(roomCode);
       if (state) {
@@ -689,6 +768,11 @@ export const registerSocketHandlers = (io) => {
 
       if (isHost) {
         if (state.status === "waiting") {
+          try {
+            await updateRoomStatus(roomCode, "expired");
+          } catch {
+            // no-op: room may already be closed
+          }
           io.to(roomCode).emit("error", {
             message: "Host disconnected. Room has been closed.",
           });
@@ -714,6 +798,7 @@ export const registerSocketHandlers = (io) => {
       // immediately so they do not linger into the game start state.
       if (state.status === "waiting" && !isHost) {
         removePlayer(roomCode, player.userId);
+        emitPlayersSnapshot(io, roomCode);
         io.to("dashboard").emit("room_status_update", {
           roomCode,
           playerCount: state.players.size,

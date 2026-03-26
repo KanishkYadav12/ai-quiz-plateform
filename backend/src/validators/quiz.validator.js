@@ -7,8 +7,13 @@ export const generateQuizSchema = z.object({
   totalQuestions: z.coerce.number().int().min(5).max(20),
   timePerQuestion: z.coerce.number().int().min(10).max(60).default(30),
   isPublic: z.boolean().default(false),
+  creationMode: z.enum(["play_now", "schedule_later"]).default("play_now"),
 });
 
 export const publishSchema = z.object({
   isPublic: z.boolean({ required_error: "isPublic must be a boolean" }),
+});
+
+export const cloneQuizSchema = z.object({
+  creationMode: z.enum(["play_now", "schedule_later"]).default("play_now"),
 });

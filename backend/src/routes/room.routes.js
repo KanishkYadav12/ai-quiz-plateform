@@ -1,22 +1,24 @@
-import { Router } from 'express'
+import { Router } from "express";
 import {
   createRoomController,
+  activateRoomController,
   getRoomController,
   getMyRoomsController,
   getRoomHistoryController,
   getLiveRoomsController,
-} from '../controllers/room.controller.js'
-import { protect } from '../middleware/auth.middleware.js'
+} from "../controllers/room.controller.js";
+import { protect } from "../middleware/auth.middleware.js";
 
-const router = Router()
+const router = Router();
 
 // All room routes require authentication
-router.use(protect)
+router.use(protect);
 
-router.post('/create',    createRoomController)
-router.get('/live',       getLiveRoomsController)
-router.get('/my-rooms',   getMyRoomsController)
-router.get('/history',    getRoomHistoryController)
-router.get('/:roomCode',  getRoomController)
+router.post("/create", createRoomController);
+router.patch("/:roomCode/activate", activateRoomController);
+router.get("/live", getLiveRoomsController);
+router.get("/my-rooms", getMyRoomsController);
+router.get("/history", getRoomHistoryController);
+router.get("/:roomCode", getRoomController);
 
-export default router
+export default router;

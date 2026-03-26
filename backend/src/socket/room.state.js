@@ -29,7 +29,13 @@ const rooms = new Map();
 
 // ── Room CRUD ─────────────────────────────────────────────────
 
-export const createRoomState = (roomCode, quiz, hostId, hostSocketId) => {
+export const createRoomState = (
+  roomCode,
+  quiz,
+  hostId,
+  hostSocketId,
+  initialStatus = "waiting",
+) => {
   if (rooms.has(roomCode)) {
     // Room already initialised (e.g. host rejoined) — just update host socket
     const existing = rooms.get(roomCode);
@@ -42,7 +48,7 @@ export const createRoomState = (roomCode, quiz, hostId, hostSocketId) => {
     quiz,
     hostId,
     hostSocketId,
-    status: "waiting",
+    status: initialStatus,
     gameOverSent: false,
     players: new Map(),
   };

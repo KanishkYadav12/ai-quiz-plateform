@@ -25,6 +25,7 @@ const schema = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]),
   totalQuestions: z.string(),
   timePerQuestion: z.string(),
+  creationMode: z.enum(["play_now", "schedule_later"]),
 });
 
 export default function CreateQuizPage() {
@@ -40,6 +41,7 @@ export default function CreateQuizPage() {
       difficulty: "medium",
       totalQuestions: "10",
       timePerQuestion: "30",
+      creationMode: "play_now",
     },
   });
 
@@ -48,10 +50,12 @@ export default function CreateQuizPage() {
       ...values,
       totalQuestions: parseInt(values.totalQuestions),
       timePerQuestion: parseInt(values.timePerQuestion),
+      creationMode: values.creationMode,
     });
   };
 
   const currentDifficulty = watch("difficulty");
+  const selectedCreationMode = watch("creationMode");
 
   return (
     <AuthGuard>
@@ -66,8 +70,12 @@ export default function CreateQuizPage() {
                 </div>
                 <div className="absolute inset-0 w-24 h-24 rounded-3xl border-4 border-[var(--accent-primary)] animate-ping opacity-20" />
               </div>
-              <h2 className="text-3xl font-black text-[var(--text-primary)] mb-2 font-display tracking-tight">AI is crafting your quiz...</h2>
-              <p className="text-[var(--text-secondary)] font-medium animate-pulse">Generating questions, options, and explanations</p>
+              <h2 className="text-3xl font-black text-[var(--text-primary)] mb-2 font-display tracking-tight">
+                AI is crafting your quiz...
+              </h2>
+              <p className="text-[var(--text-secondary)] font-medium animate-pulse">
+                Generating questions, options, and explanations
+              </p>
             </div>
           )}
 
@@ -76,38 +84,53 @@ export default function CreateQuizPage() {
             <div className="space-y-10">
               <div>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-muted)] text-[var(--accent-primary)] border border-[var(--accent-primary)]/10 text-[10px] font-black uppercase tracking-widest mb-6">
-                   <Sparkles size={12} fill="currentColor" /> AI Powered Generation
+                  <Sparkles size={12} fill="currentColor" /> AI Powered
+                  Generation
                 </div>
                 <h1 className="text-5xl font-black text-[var(--text-primary)] leading-[1.1] font-display tracking-tighter mb-6">
-                  Turn any topic into a <span className="text-[var(--accent-primary)]">live competition.</span>
+                  Turn any topic into a{" "}
+                  <span className="text-[var(--accent-primary)]">
+                    live competition.
+                  </span>
                 </h1>
                 <p className="text-lg text-[var(--text-secondary)] font-medium leading-relaxed">
-                  Our advanced AI engine creates high-quality, balanced questions instantly. Just type a topic and let the magic happen.
+                  Our advanced AI engine creates high-quality, balanced
+                  questions instantly. Just type a topic and let the magic
+                  happen.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 <div className="card p-6 bg-[var(--bg-secondary)] border-[var(--border)]">
-                   <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 mb-4">
-                      <Target size={20} />
-                   </div>
-                   <h3 className="font-bold text-[var(--text-primary)] mb-1">Precise Difficulty</h3>
-                   <p className="text-xs text-[var(--text-secondary)] leading-relaxed">Questions tailored to your chosen expertise level.</p>
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 mb-4">
+                    <Target size={20} />
+                  </div>
+                  <h3 className="font-bold text-[var(--text-primary)] mb-1">
+                    Precise Difficulty
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    Questions tailored to your chosen expertise level.
+                  </p>
                 </div>
                 <div className="card p-6 bg-[var(--bg-secondary)] border-[var(--border)]">
-                   <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 mb-4">
-                      <Users size={20} />
-                   </div>
-                   <h3 className="font-bold text-[var(--text-primary)] mb-1">Multiplayer Ready</h3>
-                   <p className="text-xs text-[var(--text-secondary)] leading-relaxed">Invite up to 20 players for real-time live sessions.</p>
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 mb-4">
+                    <Users size={20} />
+                  </div>
+                  <h3 className="font-bold text-[var(--text-primary)] mb-1">
+                    Multiplayer Ready
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    Invite up to 20 players for real-time live sessions.
+                  </p>
                 </div>
               </div>
 
               <div className="card p-8 bg-[var(--bg-tertiary)]/50 border-[var(--border)] border-dashed">
-                 <div className="flex items-center gap-4 text-[var(--text-disabled)] italic font-medium">
-                    <BookOpen size={24} />
-                    &quot;JavaScript asynchronous patterns and event loops...&quot;
-                 </div>
+                <div className="flex items-center gap-4 text-[var(--text-disabled)] italic font-medium">
+                  <BookOpen size={24} />
+                  &quot;JavaScript asynchronous patterns and event
+                  loops...&quot;
+                </div>
               </div>
             </div>
 
@@ -126,7 +149,11 @@ export default function CreateQuizPage() {
                     placeholder="e.g. Modern JavaScript Challenge"
                     className="w-full bg-[var(--bg-primary)] border-2 border-[var(--border)] rounded-2xl px-6 py-4 text-lg font-bold text-[var(--text-primary)] placeholder-[var(--text-disabled)] focus:outline-none focus:border-[var(--accent-primary)] transition-all"
                   />
-                  {errors.title && <p className="text-[var(--error)] text-xs font-bold pl-2">{errors.title.message}</p>}
+                  {errors.title && (
+                    <p className="text-[var(--error)] text-xs font-bold pl-2">
+                      {errors.title.message}
+                    </p>
+                  )}
                 </div>
 
                 {/* Topic */}
@@ -139,7 +166,11 @@ export default function CreateQuizPage() {
                     placeholder="e.g. Web Development, History, Cricket"
                     className="w-full bg-[var(--bg-primary)] border-2 border-[var(--border)] rounded-2xl px-6 py-4 text-lg font-bold text-[var(--text-primary)] placeholder-[var(--text-disabled)] focus:outline-none focus:border-[var(--accent-primary)] transition-all"
                   />
-                  {errors.topic && <p className="text-[var(--error)] text-xs font-bold pl-2">{errors.topic.message}</p>}
+                  {errors.topic && (
+                    <p className="text-[var(--error)] text-xs font-bold pl-2">
+                      {errors.topic.message}
+                    </p>
+                  )}
                 </div>
 
                 {/* Difficulty */}
@@ -153,9 +184,11 @@ export default function CreateQuizPage() {
                         key={level}
                         className={`cursor-pointer group relative overflow-hidden flex items-center justify-center p-4 rounded-2xl border-2 transition-all font-black uppercase text-[10px] tracking-widest ${
                           currentDifficulty === level
-                            ? level === "easy" ? "bg-[var(--success-muted)] border-[var(--success)] text-[var(--success)]"
-                              : level === "medium" ? "bg-[var(--warning-muted)] border-[var(--warning)] text-[var(--warning)]"
-                              : "bg-[var(--error-muted)] border-[var(--error)] text-[var(--error)]"
+                            ? level === "easy"
+                              ? "bg-[var(--success-muted)] border-[var(--success)] text-[var(--success)]"
+                              : level === "medium"
+                                ? "bg-[var(--warning-muted)] border-[var(--warning)] text-[var(--warning)]"
+                                : "bg-[var(--error-muted)] border-[var(--error)] text-[var(--error)]"
                             : "bg-[var(--bg-primary)] border-[var(--border)] text-[var(--text-disabled)] hover:border-[var(--text-secondary)]"
                         }`}
                       >
@@ -174,28 +207,86 @@ export default function CreateQuizPage() {
                 <div className="grid grid-cols-2 gap-6">
                   {/* Number of Questions */}
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-disabled)]">Questions</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-disabled)]">
+                      Questions
+                    </label>
                     <select
                       {...register("totalQuestions")}
                       className="w-full bg-[var(--bg-primary)] border-2 border-[var(--border)] rounded-2xl px-4 py-3 font-bold text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] transition-all appearance-none"
                     >
                       {[5, 10, 15, 20].map((v) => (
-                        <option key={v} value={v}>{v} Questions</option>
+                        <option key={v} value={v}>
+                          {v} Questions
+                        </option>
                       ))}
                     </select>
                   </div>
 
                   {/* Time Per Question */}
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-disabled)]">Timer (Sec)</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-disabled)]">
+                      Timer (Sec)
+                    </label>
                     <select
                       {...register("timePerQuestion")}
                       className="w-full bg-[var(--bg-primary)] border-2 border-[var(--border)] rounded-2xl px-4 py-3 font-bold text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] transition-all appearance-none"
                     >
                       {[15, 20, 30, 45, 60].map((v) => (
-                        <option key={v} value={v}>{v} Seconds</option>
+                        <option key={v} value={v}>
+                          {v} Seconds
+                        </option>
                       ))}
                     </select>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-disabled)]">
+                    Room Lifecycle
+                  </label>
+                  <div className="grid grid-cols-1 gap-3">
+                    <label
+                      className={`cursor-pointer p-4 rounded-2xl border-2 transition-all ${
+                        selectedCreationMode === "play_now"
+                          ? "bg-[var(--accent-muted)] border-[var(--accent-primary)]"
+                          : "bg-[var(--bg-primary)] border-[var(--border)]"
+                      }`}
+                    >
+                      <input
+                        {...register("creationMode")}
+                        type="radio"
+                        value="play_now"
+                        className="sr-only"
+                      />
+                      <p className="font-bold text-[var(--text-primary)]">
+                        Play Now
+                      </p>
+                      <p className="text-xs text-[var(--text-secondary)] mt-1">
+                        Create room immediately and jump to the lobby.
+                      </p>
+                    </label>
+
+                    <label
+                      className={`cursor-pointer p-4 rounded-2xl border-2 transition-all ${
+                        selectedCreationMode === "schedule_later"
+                          ? "bg-[var(--warning-muted)] border-[var(--warning)]"
+                          : "bg-[var(--bg-primary)] border-[var(--border)]"
+                      }`}
+                    >
+                      <input
+                        {...register("creationMode")}
+                        type="radio"
+                        value="schedule_later"
+                        className="sr-only"
+                      />
+                      <p className="font-bold text-[var(--text-primary)]">
+                        Schedule for Later
+                      </p>
+                      <p className="text-xs text-[var(--text-secondary)] mt-1">
+                        Show in Live Rooms as locked until you manually
+                        activate.
+                      </p>
+                    </label>
                   </div>
                 </div>
 
@@ -204,7 +295,11 @@ export default function CreateQuizPage() {
                   disabled={createLoading}
                   className="btn-primary w-full py-5 text-lg flex items-center justify-center gap-3 shadow-xl shadow-[var(--accent-primary)]/30 group"
                 >
-                  <Sparkles size={20} fill="currentColor" className="group-hover:rotate-12 transition-transform" />
+                  <Sparkles
+                    size={20}
+                    fill="currentColor"
+                    className="group-hover:rotate-12 transition-transform"
+                  />
                   Generate Quiz with AI
                   <ChevronRight size={20} />
                 </button>

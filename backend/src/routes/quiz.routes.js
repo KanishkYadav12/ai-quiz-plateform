@@ -8,6 +8,7 @@ import {
   getPublicQuizzesController,
   getQuizAnalyticsController,
   rateQuizController,
+  cloneQuizController,
 } from "../controllers/quiz.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
 import rateLimit from "express-rate-limit";
@@ -34,6 +35,7 @@ router.get("/public", getPublicQuizzesController);
 router.get("/my-quizzes", getMyQuizzes);
 router.get("/:quizId", getQuiz);
 router.get("/:quizId/analytics", getQuizAnalyticsController);
+router.post("/:quizId/clone", cloneQuizController);
 router.delete("/:quizId", deleteQuiz);
 router.patch("/:quizId/publish", publishQuiz);
 router.post("/:quizId/rate", rateQuizController);

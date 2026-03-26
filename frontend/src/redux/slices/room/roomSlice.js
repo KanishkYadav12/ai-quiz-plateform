@@ -4,6 +4,7 @@ const op = () => ({ status: "idle", data: null, error: null });
 
 const initialState = {
   create: op(),
+  activate: op(),
   details: op(),
   myRooms: op(),
   history: op(),
@@ -13,6 +14,7 @@ const initialState = {
     status: "idle",
     hostId: null,
     players: [],
+    totalPlayers: 0,
     currentQuestion: null,
     questionIndex: 0,
     totalQuestions: 0,
@@ -48,6 +50,20 @@ const roomSlice = createSlice({
     },
     clearCreate: (state) => {
       state.create = { status: "idle", data: null, error: null };
+    },
+
+    // ── activate ──────────────────────────────────────────
+    activateRequest: (state) => {
+      state.activate = { status: "pending", data: null, error: null };
+    },
+    activateSuccess: (state, { payload }) => {
+      state.activate = { status: "success", data: payload, error: null };
+    },
+    activateFailure: (state, { payload }) => {
+      state.activate = { status: "failed", data: null, error: payload };
+    },
+    clearActivate: (state) => {
+      state.activate = { status: "idle", data: null, error: null };
     },
 
     // ── details ───────────────────────────────────────────
@@ -123,6 +139,8 @@ const roomSlice = createSlice({
       state.game.players = payload.players;
       state.game.hostId = payload.room.hostId;
       state.game.quizId = payload.room.quizId;
+      state.game.totalPlayers =
+        payload.totalPlayers ?? (payload.players || []).length;
       state.game.leaderboard = payload.leaderboard || [];
       state.game.playerProgress =
         payload.playerProgress || state.game.playerProgress;
@@ -154,11 +172,18 @@ const roomSlice = createSlice({
         (p) => p.userId === payload.player.userId,
       );
       if (!exists) state.game.players.push(payload.player);
+      state.game.totalPlayers = state.game.players.length;
     },
     playerLeft: (state, { payload }) => {
       state.game.players = state.game.players.filter(
         (p) => p.userId !== payload.userId,
       );
+      state.game.totalPlayers = state.game.players.length;
+    },
+    playersSync: (state, { payload }) => {
+      state.game.players = payload.players || [];
+      state.game.totalPlayers =
+        payload.totalPlayers ?? state.game.players.length;
     },
     playerReadyUpdated: (state, { payload }) => {
       const p = state.game.players.find((p) => p.userId === payload.userId);
@@ -261,6 +286,7 @@ export const roomReducer = roomSlice.reducer;
 
 // Selectors
 export const selectRoomCreate = (s) => s.room.create;
+export const selectRoomActivate = (s) => s.room.activate;
 export const selectRoomDetails = (s) => s.room.details;
 export const selectMyRooms = (s) => s.room.myRooms;
 export const selectRoomHistory = (s) => s.room.history;

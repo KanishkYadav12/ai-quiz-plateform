@@ -44,19 +44,28 @@ const roomSchema = new mongoose.Schema(
     roomCode: { type: String, required: true, unique: true, length: 6 },
     status: {
       type: String,
-      enum: ["waiting", "active", "completed"],
+      enum: ["waiting", "active", "completed", "expired"],
       default: "waiting",
     },
+    creationMode: {
+      type: String,
+      enum: ["play_now", "schedule_later"],
+      default: "play_now",
+    },
+    joinable: { type: Boolean, default: true },
     players: { type: [playerSchema], default: [] },
     currentQuestionIndex: { type: Number, default: 0 },
     finalResult: { type: mongoose.Schema.Types.Mixed, default: null },
+    activatedAt: { type: Date, default: null },
     startedAt: { type: Date },
     completedAt: { type: Date },
+    expiredAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
 
 roomSchema.index({ hostId: 1, createdAt: -1 });
 roomSchema.index({ "players.userId": 1 });
+roomSchema.index({ quizId: 1, status: 1, createdAt: -1 });
 
 export const Room = mongoose.model("Room", roomSchema);

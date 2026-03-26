@@ -1,98 +1,131 @@
-import { quizActions } from '@/redux/slices/quiz/quizSlice'
-import { quizService } from '@/services/quiz'
+import { quizActions } from "@/redux/slices/quiz/quizSlice";
+import { quizService } from "@/services/quiz";
 
 export const generateQuiz = (payload) => async (dispatch) => {
-  dispatch(quizActions.createRequest())
+  dispatch(quizActions.createRequest());
   try {
-    const data = await quizService.generate(payload)
-    dispatch(quizActions.createSuccess(data.data.quiz))
+    const data = await quizService.generate(payload);
+    dispatch(quizActions.createSuccess(data.data));
   } catch (err) {
-    dispatch(quizActions.createFailure(
-      err.response?.data?.message || 'AI generation failed. Please try again.'
-    ))
+    dispatch(
+      quizActions.createFailure(
+        err.response?.data?.message ||
+          "AI generation failed. Please try again.",
+      ),
+    );
   }
-}
+};
+
+export const cloneQuiz =
+  (quizId, creationMode = "play_now") =>
+  async (dispatch) => {
+    dispatch(quizActions.cloneRequest());
+    try {
+      const data = await quizService.clone(quizId, creationMode);
+      dispatch(quizActions.cloneSuccess(data.data));
+    } catch (err) {
+      dispatch(
+        quizActions.cloneFailure(
+          err.response?.data?.message || "Failed to clone quiz",
+        ),
+      );
+    }
+  };
 
 export const rateQuiz = (quizId, rating) => async (dispatch) => {
-  dispatch(quizActions.rateRequest())
+  dispatch(quizActions.rateRequest());
   try {
-    const data = await quizService.rateQuiz(quizId, rating)
-    dispatch(quizActions.rateSuccess(data.data.quiz))
+    const data = await quizService.rateQuiz(quizId, rating);
+    dispatch(quizActions.rateSuccess(data.data.quiz));
   } catch (err) {
-    dispatch(quizActions.rateFailure(
-      err.response?.data?.message || 'Failed to submit rating'
-    ))
+    dispatch(
+      quizActions.rateFailure(
+        err.response?.data?.message || "Failed to submit rating",
+      ),
+    );
   }
-}
+};
 
 export const fetchQuizAnalytics = (quizId) => async (dispatch) => {
-  dispatch(quizActions.analyticsRequest())
+  dispatch(quizActions.analyticsRequest());
   try {
-    const data = await quizService.getAnalytics(quizId)
-    dispatch(quizActions.analyticsSuccess(data.data.analytics))
+    const data = await quizService.getAnalytics(quizId);
+    dispatch(quizActions.analyticsSuccess(data.data.analytics));
   } catch (err) {
-    dispatch(quizActions.analyticsFailure(
-      err.response?.data?.message || 'Failed to load analytics'
-    ))
+    dispatch(
+      quizActions.analyticsFailure(
+        err.response?.data?.message || "Failed to load analytics",
+      ),
+    );
   }
-}
+};
 
 export const fetchPublicQuizzes = () => async (dispatch) => {
-  dispatch(quizActions.publicListRequest())
+  dispatch(quizActions.publicListRequest());
   try {
-    const data = await quizService.getPublic()
-    dispatch(quizActions.publicListSuccess(data.data.quizzes))
+    const data = await quizService.getPublic();
+    dispatch(quizActions.publicListSuccess(data.data.quizzes));
   } catch (err) {
-    dispatch(quizActions.publicListFailure(
-      err.response?.data?.message || 'Failed to load public library'
-    ))
+    dispatch(
+      quizActions.publicListFailure(
+        err.response?.data?.message || "Failed to load public library",
+      ),
+    );
   }
-}
+};
 
 export const fetchMyQuizzes = () => async (dispatch) => {
-  dispatch(quizActions.listRequest())
+  dispatch(quizActions.listRequest());
   try {
-    const data = await quizService.getMyQuizzes()
-    dispatch(quizActions.listSuccess(data.data.quizzes))
+    const data = await quizService.getMyQuizzes();
+    dispatch(quizActions.listSuccess(data.data.quizzes));
   } catch (err) {
-    dispatch(quizActions.listFailure(
-      err.response?.data?.message || 'Failed to load quizzes'
-    ))
+    dispatch(
+      quizActions.listFailure(
+        err.response?.data?.message || "Failed to load quizzes",
+      ),
+    );
   }
-}
+};
 
 export const fetchQuizById = (quizId) => async (dispatch) => {
-  dispatch(quizActions.detailsRequest())
+  dispatch(quizActions.detailsRequest());
   try {
-    const data = await quizService.getById(quizId)
-    dispatch(quizActions.detailsSuccess(data.data.quiz))
+    const data = await quizService.getById(quizId);
+    dispatch(quizActions.detailsSuccess(data.data.quiz));
   } catch (err) {
-    dispatch(quizActions.detailsFailure(
-      err.response?.data?.message || 'Failed to load quiz'
-    ))
+    dispatch(
+      quizActions.detailsFailure(
+        err.response?.data?.message || "Failed to load quiz",
+      ),
+    );
   }
-}
+};
 
 export const deleteQuiz = (quizId) => async (dispatch) => {
-  dispatch(quizActions.deleteRequest())
+  dispatch(quizActions.deleteRequest());
   try {
-    await quizService.deleteQuiz(quizId)
-    dispatch(quizActions.deleteSuccess({ quizId }))
+    await quizService.deleteQuiz(quizId);
+    dispatch(quizActions.deleteSuccess({ quizId }));
   } catch (err) {
-    dispatch(quizActions.deleteFailure(
-      err.response?.data?.message || 'Failed to delete quiz'
-    ))
+    dispatch(
+      quizActions.deleteFailure(
+        err.response?.data?.message || "Failed to delete quiz",
+      ),
+    );
   }
-}
+};
 
 export const toggleQuizPublish = (quizId, isPublic) => async (dispatch) => {
-  dispatch(quizActions.publishRequest())
+  dispatch(quizActions.publishRequest());
   try {
-    const data = await quizService.togglePublish(quizId, isPublic)
-    dispatch(quizActions.publishSuccess(data.data.quiz))
+    const data = await quizService.togglePublish(quizId, isPublic);
+    dispatch(quizActions.publishSuccess(data.data.quiz));
   } catch (err) {
-    dispatch(quizActions.publishFailure(
-      err.response?.data?.message || 'Failed to update quiz'
-    ))
+    dispatch(
+      quizActions.publishFailure(
+        err.response?.data?.message || "Failed to update quiz",
+      ),
+    );
   }
-}
+};

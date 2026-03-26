@@ -49,6 +49,9 @@ export const useSocket = () => {
       dispatch(roomActions.playerJoined(payload)),
     );
     s.on("player_left", (payload) => dispatch(roomActions.playerLeft(payload)));
+    s.on("players_sync", (payload) =>
+      dispatch(roomActions.playersSync(payload)),
+    );
     s.on("player_ready", (payload) =>
       dispatch(roomActions.playerReadyUpdated(payload)),
     );
