@@ -233,6 +233,7 @@ export default function GamePlayPage() {
 
   const finishedCount = game.finishedPlayers?.length || 0;
   const totalPlayers = game.players?.length || 0;
+  const allFinished = totalPlayers > 0 && finishedCount >= totalPlayers;
   const shouldShowWaiting =
     meFinished && game.status === "active" && totalPlayers > 1;
 
@@ -289,17 +290,33 @@ export default function GamePlayPage() {
         <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col page-enter">
           <main className="w-full max-w-4xl mx-auto px-6 py-12">
             <div className="card p-8 bg-[var(--success-muted)] border-[var(--success)] mb-8">
-              <h1 className="text-3xl font-black text-[var(--success)] mb-2 font-display">
-                You finished! Waiting for other players...
+              <h1 className="text-3xl font-black text-[var(--success)] mb-2 font-display flex items-center gap-3">
+                {allFinished ? (
+                  <>
+                    <Loader2
+                      size={28}
+                      className="animate-spin text-[var(--success)]"
+                    />
+                    Generating final report...
+                  </>
+                ) : (
+                  "You finished! Waiting for other players..."
+                )}
               </h1>
               <p className="text-[var(--text-secondary)] font-bold">
-                Progress: {finishedCount}/{totalPlayers} players finished
+                {allFinished ? (
+                  "All players finished — building the final report."
+                ) : (
+                  <>
+                    Progress: {finishedCount}/{totalPlayers} players finished
+                  </>
+                )}
               </p>
               <div className="mt-4 h-2 bg-[var(--bg-tertiary)] rounded-full overflow-hidden border border-[var(--border)]">
                 <div
                   className="h-full bg-[var(--success)] transition-all duration-700"
                   style={{
-                    width: `${totalPlayers > 0 ? (finishedCount / totalPlayers) * 100 : 0}%`,
+                    width: `${allFinished ? 100 : totalPlayers > 0 ? (finishedCount / totalPlayers) * 100 : 0}%`,
                   }}
                 />
               </div>
