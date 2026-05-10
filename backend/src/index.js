@@ -5,7 +5,6 @@ import helmet from "helmet";
 import morgan from "morgan";
 import { createServer } from "http";
 import { Server } from "socket.io";
-
 import { connectDB } from "./config/db.config.js";
 import { getEnv } from "./config/env.config.js";
 import { errorHandler } from "./middleware/error.middleware.js";
